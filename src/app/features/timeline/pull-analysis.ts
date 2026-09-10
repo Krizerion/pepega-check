@@ -40,6 +40,8 @@ interface PlayerHits {
 }
 
 interface MechanicRow {
+  /** Unique per phase + ability, used for expansion state. */
+  key: string;
   id: number;
   name: string;
   icon: string;
@@ -51,11 +53,25 @@ interface MechanicRow {
   perPlayer: PlayerHits[];
 }
 
+interface PhaseGroup {
+  phase: number;
+  /** null = single unlabelled group (fight has no phases). */
+  label: string | null;
+  mechanics: MechanicRow[];
+}
+
 interface LeaderboardRow {
   name: string;
   color: string;
   deaths: number;
   unmitigated: number;
+}
+
+interface ConsumableRow {
+  name: string;
+  color: string;
+  combatPots: number;
+  healthPots: number;
 }
 
 @Component({
@@ -71,7 +87,8 @@ export class PullAnalysis {
   protected readonly store = inject(ReportStore);
   protected readonly format = formatOffset;
   protected readonly scope = signal<AnalysisScope>('pull');
-  protected readonly expanded = signal<ReadonlySet<number>>(new Set());
+  protected readonly expanded = signal<ReadonlySet<string>>(new Set());
+  protected readonly deathOptions = [1, 2, 3, 4, 5, 8, 10];
 
   constructor() {
     // Lazily pull damage (and, for the all-pulls tab, cast/death) events.
@@ -114,8 +131,8 @@ export class PullAnalysis {
     return `Pull ${index} analysis`;
   });
 
-  /** Wipefest-style mechanic table from damage-taken events. */
-  protected readonly mechanics = computed<MechanicRow[]>(() => {
+  /** Wipefest-style mechanic tables from damage-taken events, grouped by phase. */
+  protected readonly mechanicGroups = computed<PhaseGroup[]>(() => {
     const report = this.store.report();
     if (!report) {
       return [];
@@ -128,18 +145,45 @@ export class PullAnalysis {
       total: number;
       byPlayer: Map<number, { damage: number; hits: number }>;
     }
-    const byAbility = new Map<number, Agg>();
+    const byPhase = new Map<number, Map<number, Agg>>();
+    let sawTransitions = false;
 
     for (const fight of this.scopeFights()) {
+      const cutoff = this.cutoffFor(fight);
+      const transitions = (fight.phaseTransitions ?? [])
+        .slice()
+        .sort((a, b) => a.startTime - b.startTime);
+      if (transitions.length > 1) {
+        sawTransitions = true;
+      }
+      const phaseOf = (timestamp: number): number => {
+        let phase = 1;
+        for (const t of transitions) {
+          if (t.startTime <= timestamp) {
+            phase = t.id;
+          }
+        }
+        return phase;
+      };
+
       for (const event of damage.get(fight.id) ?? []) {
         if (event.abilityGameID <= 1 || !players.has(event.targetID)) {
           continue;
         }
+        if (cutoff !== null && event.timestamp > cutoff) {
+          continue;
+        }
+        const phase = phaseOf(event.timestamp);
+        let abilities = byPhase.get(phase);
+        if (!abilities) {
+          abilities = new Map();
+          byPhase.set(phase, abilities);
+        }
         const amount = event.amount + (event.absorbed ?? 0);
-        let agg = byAbility.get(event.abilityGameID);
+        let agg = abilities.get(event.abilityGameID);
         if (!agg) {
           agg = { hits: 0, total: 0, byPlayer: new Map() };
-          byAbility.set(event.abilityGameID, agg);
+          abilities.set(event.abilityGameID, agg);
         }
         agg.hits++;
         agg.total += amount;
@@ -150,39 +194,120 @@ export class PullAnalysis {
       }
     }
 
-    return [...byAbility.entries()]
-      .map(([id, agg]) => {
-        const ability = report.abilities.get(id);
-        const perPlayer = [...agg.byPlayer.entries()]
-          .map(([playerId, stats]) => {
-            const player = players.get(playerId);
-            return {
-              name: player?.name ?? `#${playerId}`,
-              color: player ? classColor(player.className) : 'var(--text-1)',
-              damage: stats.damage,
-              hits: stats.hits,
-              pct: 0,
-            };
-          })
-          .sort((a, b) => b.damage - a.damage);
-        const max = perPlayer[0]?.damage ?? 1;
-        for (const row of perPlayer) {
-          row.pct = Math.max(2, Math.round((row.damage / max) * 100));
-        }
+    const groups = [...byPhase.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([phase, abilities]) => ({
+        phase,
+        label: null as string | null,
+        mechanics: [...abilities.entries()]
+          .map(([id, agg]) => this.toMechanicRow(phase, id, agg, report, players))
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      }));
+    if (groups.length > 1 || sawTransitions) {
+      for (const group of groups) {
+        group.label = `Phase ${group.phase}`;
+      }
+    }
+    return groups;
+  });
+
+  private toMechanicRow(
+    phase: number,
+    id: number,
+    agg: { hits: number; total: number; byPlayer: Map<number, { damage: number; hits: number }> },
+    report: NonNullable<ReturnType<ReportStore['report']>>,
+    players: Map<number, { name: string; className: string }>,
+  ): MechanicRow {
+    const ability = report.abilities.get(id);
+    const perPlayer = [...agg.byPlayer.entries()]
+      .map(([playerId, stats]) => {
+        const player = players.get(playerId);
         return {
-          id,
-          name: ability?.name ?? `Ability #${id}`,
-          icon: abilityIconUrl(ability?.icon),
-          url: `https://www.wowhead.com/spell=${id}`,
-          hits: agg.hits,
-          playersHit: agg.byPlayer.size,
-          totalDamage: agg.total,
-          avgHit: Math.round(agg.total / agg.hits),
-          perPlayer,
+          name: player?.name ?? `#${playerId}`,
+          color: player ? classColor(player.className) : 'var(--text-1)',
+          damage: stats.damage,
+          hits: stats.hits,
+          pct: 0,
         };
       })
-      .sort((a, b) => b.totalDamage - a.totalDamage);
+      .sort((a, b) => b.damage - a.damage);
+    const max = perPlayer[0]?.damage ?? 1;
+    for (const row of perPlayer) {
+      row.pct = Math.max(2, Math.round((row.damage / max) * 100));
+    }
+    return {
+      key: `${phase}:${id}`,
+      id,
+      name: ability?.name ?? `Ability #${id}`,
+      icon: abilityIconUrl(ability?.icon),
+      url: `https://www.wowhead.com/spell=${id}`,
+      hits: agg.hits,
+      playersHit: agg.byPlayer.size,
+      totalDamage: agg.total,
+      avgHit: Math.round(agg.total / agg.hits),
+      perPlayer,
+    };
+  }
+
+  /** Combat pot and health pot/stone usage per raider, cutoff-aware. */
+  protected readonly consumables = computed<ConsumableRow[]>(() => {
+    const report = this.store.report();
+    if (!report) {
+      return [];
+    }
+    const events = this.store.events();
+    const counts = new Map<number, { combatPots: number; healthPots: number }>();
+
+    for (const fight of this.scopeFights()) {
+      const cutoff = this.cutoffFor(fight);
+      for (const cast of events.get(fight.id)?.friendlyCasts ?? []) {
+        if (cutoff !== null && cast.timestamp > cutoff) {
+          continue;
+        }
+        const ability = report.abilities.get(cast.abilityGameID);
+        const category = classifyAbility(cast.abilityGameID, ability?.name ?? null);
+        if (category !== 'combat-pot' && category !== 'health-pot') {
+          continue;
+        }
+        const row = counts.get(cast.sourceID) ?? { combatPots: 0, healthPots: 0 };
+        if (category === 'combat-pot') {
+          row.combatPots++;
+        } else {
+          row.healthPots++;
+        }
+        counts.set(cast.sourceID, row);
+      }
+    }
+
+    const roleOrder: Record<string, number> = { tank: 0, healer: 1, dps: 2 };
+    return this.store
+      .players()
+      .slice()
+      .sort(
+        (a, b) =>
+          (roleOrder[a.role] ?? 3) - (roleOrder[b.role] ?? 3) || a.name.localeCompare(b.name),
+      )
+      .map((player) => ({
+        name: player.name,
+        color: classColor(player.className),
+        combatPots: counts.get(player.id)?.combatPots ?? 0,
+        healthPots: counts.get(player.id)?.healthPots ?? 0,
+      }));
   });
+
+  /** Absolute timestamp of the Nth death in a fight, per the ignore-after setting. */
+  private cutoffFor(fight: ReportFight): number | null {
+    const n = this.store.ignoreAfterDeaths();
+    if (n === null) {
+      return null;
+    }
+    const deaths = this.store.events().get(fight.id)?.deaths;
+    if (!deaths || deaths.length < n) {
+      return null;
+    }
+    const sorted = [...deaths].sort((a, b) => a.timestamp - b.timestamp);
+    return sorted[n - 1].timestamp;
+  }
 
   protected readonly deathRows = computed<DeathRow[]>(() => {
     const pull = this.store.selectedPull();
@@ -255,12 +380,20 @@ export class PullAnalysis {
     this.store.showAnalysis.set(false);
   }
 
-  protected toggleExpanded(abilityId: number): void {
+  protected toggleExpanded(key: string): void {
     const next = new Set(this.expanded());
-    if (!next.delete(abilityId)) {
-      next.add(abilityId);
+    if (!next.delete(key)) {
+      next.add(key);
     }
     this.expanded.set(next);
+  }
+
+  protected asSelect(event: Event): HTMLSelectElement {
+    return event.target as HTMLSelectElement;
+  }
+
+  protected setIgnoreDeaths(value: string): void {
+    this.store.ignoreAfterDeaths.set(value === '' ? null : Number(value));
   }
 
   protected fmt(value: number): string {
@@ -284,10 +417,12 @@ export class PullAnalysis {
       return [];
     }
 
+    const cutoff = this.cutoffFor(fight);
     const players = new Map(this.store.players().map((p) => [p.id, p]));
     const actors = new Map(report.actors.map((a) => [a.id, a]));
     return [...events.deaths]
       .sort((a, b) => a.timestamp - b.timestamp)
+      .filter((death) => cutoff === null || death.timestamp <= cutoff)
       .map((death) => {
         const player = players.get(death.targetID);
         const abilityId = killingAbilityId(death);

@@ -7,6 +7,19 @@
         All pulls ({{ store.includedPulls().length }})
       </button>
     </div>
+    <label class="ignore" title="Ignore everything after the Nth death">
+      ignore after
+      <select
+        [value]="store.ignoreAfterDeaths() ?? ''"
+        (change)="setIgnoreDeaths(asSelect($event).value)"
+      >
+        <option value="">off</option>
+        @for (n of deathOptions; track n) {
+          <option [value]="n">{{ n }}</option>
+        }
+      </select>
+      deaths
+    </label>
     <button class="close" (click)="close()" title="Close (Esc)">✕</button>
   </div>
 
@@ -22,8 +35,12 @@
     </ul>
   }
 
-  @if (mechanics().length > 0) {
-    <h4>Mechanic hits</h4>
+  @for (group of mechanicGroups(); track group.phase) {
+    @if (group.label) {
+      <h4 class="phase-header">{{ group.label }}</h4>
+    } @else {
+      <h4>Mechanic hits</h4>
+    }
     <table class="mechanics">
       <thead>
         <tr>
@@ -36,9 +53,9 @@
         </tr>
       </thead>
       <tbody>
-        @for (row of mechanics(); track row.id) {
-          <tr class="mech-row" (click)="toggleExpanded(row.id)">
-            <td class="chev">{{ expanded().has(row.id) ? '▾' : '▸' }}</td>
+        @for (row of group.mechanics; track row.key) {
+          <tr class="mech-row" (click)="toggleExpanded(row.key)">
+            <td class="chev">{{ expanded().has(row.key) ? '▾' : '▸' }}</td>
             <td class="mech-name">
               <img [src]="row.icon" (error)="onIconError($event)" alt="" />
               <a
@@ -55,7 +72,7 @@
             <td class="num strong">{{ fmt(row.totalDamage) }}</td>
             <td class="num">{{ fmt(row.avgHit) }}</td>
           </tr>
-          @if (expanded().has(row.id)) {
+          @if (expanded().has(row.key)) {
             <tr class="detail">
               <td></td>
               <td colspan="5">
@@ -72,6 +89,30 @@
               </td>
             </tr>
           }
+        }
+      </tbody>
+    </table>
+  }
+
+  @if (consumables().length > 0) {
+    <h4>Consumables</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>Player</th>
+          <th class="num">Combat pots</th>
+          <th class="num">Health pots &amp; stones</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of consumables(); track row.name) {
+          <tr>
+            <td>
+              <span class="name" [style.color]="row.color">{{ row.name }}</span>
+            </td>
+            <td class="num" [class.none]="row.combatPots === 0">{{ row.combatPots }}</td>
+            <td class="num">{{ row.healthPots }}</td>
+          </tr>
         }
       </tbody>
     </table>

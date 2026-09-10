@@ -45,6 +45,26 @@
   flex: 1;
 }
 
+.ignore {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--text-2);
+  white-space: nowrap;
+
+  select {
+    padding: 1px 4px;
+    font-size: 11.5px;
+  }
+}
+
+.phase-header {
+  color: var(--warn);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 3px;
+}
+
 .close {
   background: none;
   border: none;
