@@ -10,7 +10,13 @@ import {
 
 import { classifyAbility } from '../../core/data/ability-catalog';
 import { abilityIconUrl, classColor } from '../../core/data/wow';
-import { DeathEvent, ReportFight, formatOffset, killingAbilityId } from '../../core/models/wcl';
+import {
+  DeathEvent,
+  ReportFight,
+  fightDuration,
+  formatOffset,
+  killingAbilityId,
+} from '../../core/models/wcl';
 import { ReportStore } from '../../core/state/report-store';
 
 /** Categories that count as "tried to survive" right before a death. */
@@ -74,6 +80,17 @@ interface ConsumableRow {
   healthPots: number;
 }
 
+interface PerformanceRow {
+  name: string;
+  color: string;
+  damage: number;
+  dps: number;
+  healing: number;
+  hps: number;
+  /** WCL rank percentile (kills only); null when no kill is in scope. */
+  parse: number | null;
+}
+
 @Component({
   selector: 'app-pull-analysis',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -98,6 +115,7 @@ export class PullAnalysis {
       untracked(() => {
         for (const fight of fights) {
           void this.store.ensureDamage(fight.id);
+          void this.store.ensurePerformance(fight.id);
           if (scope === 'all') {
             void this.store.ensureEvents(fight.id);
           }
@@ -255,6 +273,72 @@ export class PullAnalysis {
       avgHit: Math.round(agg.total / agg.hits),
       perPlayer,
     };
+  }
+
+  /** Overall damage/healing per raider across the scope, with kill parses. */
+  protected readonly performance = computed<PerformanceRow[]>(() => {
+    const perf = this.store.performanceByFight();
+    const fights = this.scopeFights();
+    const totalSeconds = Math.max(1, fights.reduce((sum, f) => sum + fightDuration(f), 0) / 1000);
+
+    const totals = new Map<number, { damage: number; healing: number }>();
+    const parseSums = new Map<string, { sum: number; count: number }>();
+    let anyLoaded = false;
+
+    for (const fight of fights) {
+      const data = perf.get(fight.id);
+      if (!data) {
+        continue;
+      }
+      anyLoaded = true;
+      for (const entry of data.entries) {
+        const t = totals.get(entry.actorId) ?? { damage: 0, healing: 0 };
+        t.damage += entry.damage;
+        t.healing += entry.healing;
+        totals.set(entry.actorId, t);
+      }
+      if (data.parses) {
+        for (const [name, parse] of Object.entries(data.parses)) {
+          const p = parseSums.get(name) ?? { sum: 0, count: 0 };
+          p.sum += parse;
+          p.count++;
+          parseSums.set(name, p);
+        }
+      }
+    }
+    if (!anyLoaded) {
+      return [];
+    }
+
+    return this.store
+      .players()
+      .map((player) => {
+        const t = totals.get(player.id) ?? { damage: 0, healing: 0 };
+        const p = parseSums.get(player.name);
+        return {
+          name: player.name,
+          color: classColor(player.className),
+          damage: t.damage,
+          dps: t.damage / totalSeconds,
+          healing: t.healing,
+          hps: t.healing / totalSeconds,
+          parse: p ? Math.round(p.sum / p.count) : null,
+        };
+      })
+      .sort((a, b) => b.damage - a.damage);
+  });
+
+  protected readonly hasParses = computed(() => this.performance().some((r) => r.parse !== null));
+
+  /** WCL-style parse colors. */
+  protected parseColor(parse: number): string {
+    if (parse >= 100) return '#e5cc80';
+    if (parse >= 99) return '#e268a8';
+    if (parse >= 95) return '#ff8000';
+    if (parse >= 75) return '#a335ee';
+    if (parse >= 50) return '#0070dd';
+    if (parse >= 25) return '#1eff00';
+    return '#8b8b98';
   }
 
   /** Combat pot and health pot/stone usage per raider, cutoff-aware. */

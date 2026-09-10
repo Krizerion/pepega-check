@@ -97,6 +97,20 @@ export interface DamageEvent {
   absorbed?: number | null;
 }
 
+/** Per-player totals for one fight, from the WCL summary tables. */
+export interface PlayerPerformance {
+  actorId: number;
+  name: string;
+  damage: number;
+  healing: number;
+}
+
+export interface FightPerformance {
+  entries: PlayerPerformance[];
+  /** WCL rank percentile by player name; null when the fight is not a kill. */
+  parses: Record<string, number> | null;
+}
+
 /** All events fetched for a single fight (pull). */
 export interface FightEvents {
   friendlyCasts: CastEvent[];

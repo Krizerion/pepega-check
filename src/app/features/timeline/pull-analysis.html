@@ -35,6 +35,46 @@
     </ul>
   }
 
+  @if (performance().length > 0) {
+    <h4>Overall performance</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>Player</th>
+          <th class="num">DPS</th>
+          <th class="num">Damage</th>
+          <th class="num">HPS</th>
+          <th class="num">Healing</th>
+          @if (hasParses()) {
+            <th class="num">Parse</th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of performance(); track row.name) {
+          <tr>
+            <td>
+              <span class="name" [style.color]="row.color">{{ row.name }}</span>
+            </td>
+            <td class="num strong">{{ fmt(row.dps) }}</td>
+            <td class="num">{{ fmt(row.damage) }}</td>
+            <td class="num">{{ fmt(row.hps) }}</td>
+            <td class="num">{{ fmt(row.healing) }}</td>
+            @if (hasParses()) {
+              <td class="num">
+                @if (row.parse !== null) {
+                  <span class="parse" [style.color]="parseColor(row.parse)">{{ row.parse }}</span>
+                } @else {
+                  <span class="ago">—</span>
+                }
+              </td>
+            }
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+
   @for (group of mechanicGroups(); track group.phase) {
     @if (group.label) {
       <h4 class="phase-header">{{ group.label }}</h4>

@@ -5,6 +5,8 @@ import {
   DamageEvent,
   DeathEvent,
   FightEvents,
+  FightPerformance,
+  PlayerPerformance,
   PlayerInfo,
   PlayerRole,
   Report,
@@ -81,8 +83,38 @@ query FightEvents(
   }
 }`;
 
+const TABLE_QUERY = `
+query Table($code: String!, $fightID: Int!, $dataType: TableDataType!) {
+  reportData {
+    report(code: $code) {
+      table(fightIDs: [$fightID], dataType: $dataType)
+    }
+  }
+}`;
+
+const RANKINGS_QUERY = `
+query Rankings($code: String!, $fightID: Int!, $metric: ReportRankingMetricType!) {
+  reportData {
+    report(code: $code) {
+      rankings(fightIDs: [$fightID], playerMetric: $metric)
+    }
+  }
+}`;
+
 interface GraphQlError {
   message: string;
+}
+
+interface RawTableEntry {
+  id: number;
+  name: string;
+  total?: number;
+  petOwner?: number | null;
+}
+
+interface RawRankingCharacter {
+  name: string;
+  rankPercent?: number | null;
 }
 
 interface RawPlayerDetails {
@@ -177,6 +209,111 @@ export class WclApiService {
   /** Damage taken by friendly players — the basis for mechanic analysis. */
   async fetchDamageTaken(code: string, fight: ReportFight): Promise<DamageEvent[]> {
     return this.fetchAllEvents<DamageEvent>(code, fight, 'DamageTaken', 'Friendlies');
+  }
+
+  /** Per-player damage/healing totals, plus WCL parses for kills. */
+  async fetchPerformance(code: string, fight: ReportFight): Promise<FightPerformance> {
+    const [damage, healing] = await Promise.all([
+      this.fetchTable(code, fight.id, 'DamageDone'),
+      this.fetchTable(code, fight.id, 'Healing'),
+    ]);
+
+    const entries = new Map<number, PlayerPerformance>();
+    const add = (
+      table: Map<number, { name: string; total: number }>,
+      field: 'damage' | 'healing',
+    ) => {
+      for (const [actorId, { name, total }] of table) {
+        let entry = entries.get(actorId);
+        if (!entry) {
+          entry = { actorId, name, damage: 0, healing: 0 };
+          entries.set(actorId, entry);
+        }
+        entry[field] += total;
+      }
+    };
+    add(damage, 'damage');
+    add(healing, 'healing');
+
+    return {
+      entries: [...entries.values()],
+      parses: fight.kill ? await this.fetchParses(code, fight.id) : null,
+    };
+  }
+
+  /** One summary table; pet totals are folded into their owners. */
+  private async fetchTable(
+    code: string,
+    fightId: number,
+    dataType: 'DamageDone' | 'Healing',
+  ): Promise<Map<number, { name: string; total: number }>> {
+    const data = await this.query<{
+      reportData: { report: { table: { data?: { entries?: RawTableEntry[] } } } };
+    }>(TABLE_QUERY, { code, fightID: fightId, dataType });
+
+    const entries = data.reportData.report.table.data?.entries ?? [];
+    const totals = new Map<number, { name: string; total: number }>();
+    const pets: RawTableEntry[] = [];
+    for (const entry of entries) {
+      if (entry.petOwner != null) {
+        pets.push(entry);
+      } else {
+        totals.set(entry.id, { name: entry.name, total: entry.total ?? 0 });
+      }
+    }
+    for (const pet of pets) {
+      const owner = totals.get(pet.petOwner!);
+      if (owner) {
+        owner.total += pet.total ?? 0;
+      }
+    }
+    return totals;
+  }
+
+  /** Rank percentiles by player name: hps for healers, dps for everyone else. */
+  private async fetchParses(code: string, fightId: number): Promise<Record<string, number>> {
+    const [dps, hps] = await Promise.all([
+      this.fetchRanking(code, fightId, 'dps'),
+      this.fetchRanking(code, fightId, 'hps'),
+    ]);
+    return { ...dps.all, ...hps.healersOnly };
+  }
+
+  private async fetchRanking(
+    code: string,
+    fightId: number,
+    metric: 'dps' | 'hps',
+  ): Promise<{ all: Record<string, number>; healersOnly: Record<string, number> }> {
+    const data = await this.query<{
+      reportData: {
+        report: {
+          rankings: {
+            data?: {
+              fightID: number;
+              roles?: Partial<
+                Record<'tanks' | 'healers' | 'dps', { characters?: RawRankingCharacter[] }>
+              >;
+            }[];
+          };
+        };
+      };
+    }>(RANKINGS_QUERY, { code, fightID: fightId, metric });
+
+    const all: Record<string, number> = {};
+    const healersOnly: Record<string, number> = {};
+    const fightRanking = data.reportData.report.rankings.data?.find((r) => r.fightID === fightId);
+    for (const role of ['tanks', 'healers', 'dps'] as const) {
+      for (const character of fightRanking?.roles?.[role]?.characters ?? []) {
+        if (character.rankPercent == null) {
+          continue;
+        }
+        all[character.name] = character.rankPercent;
+        if (role === 'healers') {
+          healersOnly[character.name] = character.rankPercent;
+        }
+      }
+    }
+    return { all, healersOnly };
   }
 
   private async fetchAllEvents<T>(

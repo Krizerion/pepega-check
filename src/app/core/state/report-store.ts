@@ -7,11 +7,12 @@ import {
   CategoryMeta,
   classifyAbility,
 } from '../data/ability-catalog';
-import { DEMO_REPORT_CODE, buildDemoReport } from '../data/demo-report';
+import { DEMO_REPORT_CODE, buildDemoPerformance, buildDemoReport } from '../data/demo-report';
 import {
   DamageEvent,
   EncounterGroup,
   FightEvents,
+  FightPerformance,
   PlayerInfo,
   PlayerRole,
   Report,
@@ -41,6 +42,8 @@ export class ReportStore {
   readonly damageByFight = signal<ReadonlyMap<number, DamageEvent[]>>(new Map());
   readonly loadingDamage = signal<ReadonlySet<number>>(new Set());
   private readonly inflightDamage = new Map<number, Promise<void>>();
+  readonly performanceByFight = signal<ReadonlyMap<number, FightPerformance>>(new Map());
+  private readonly inflightPerformance = new Map<number, Promise<void>>();
   private demoEvents: Map<number, FightEvents> | null = null;
   private demoDamage: Map<number, DamageEvent[]> | null = null;
   private playerDetailsCache = new Map<string, PlayerInfo[]>();
@@ -253,6 +256,8 @@ export class ReportStore {
     this.inflight.clear();
     this.damageByFight.set(new Map());
     this.inflightDamage.clear();
+    this.performanceByFight.set(new Map());
+    this.inflightPerformance.clear();
     this.playerDetailsCache.clear();
     this.demoEvents = null;
     this.demoDamage = null;
@@ -395,6 +400,41 @@ export class ReportStore {
     const excluded = this.excludedPullIds();
     return (this.selectedEncounter()?.pulls ?? []).filter((p) => !excluded.has(p.id));
   });
+
+  /** Lazily loads per-player damage/healing totals and parses for one fight. */
+  async ensurePerformance(fightId: number): Promise<void> {
+    if (this.performanceByFight().get(fightId)) {
+      return;
+    }
+    const existing = this.inflightPerformance.get(fightId);
+    if (existing) {
+      return existing;
+    }
+    const task = this.fetchPerformance(fightId);
+    this.inflightPerformance.set(fightId, task);
+    try {
+      await task;
+    } finally {
+      this.inflightPerformance.delete(fightId);
+    }
+  }
+
+  private async fetchPerformance(fightId: number): Promise<void> {
+    const report = this.report();
+    const fight = report?.fights.find((f) => f.id === fightId);
+    if (!report || !fight) {
+      return;
+    }
+    try {
+      const performance =
+        report.code === DEMO_REPORT_CODE
+          ? buildDemoPerformance(fight, this.players())
+          : await this.api.fetchPerformance(report.code, fight);
+      this.performanceByFight.update((map) => new Map(map).set(fightId, performance));
+    } catch (e) {
+      this.error.set(e instanceof Error ? e.message : 'Failed to load performance data.');
+    }
+  }
 
   /** Lazily loads damage-taken events for one fight (analysis panel). */
   async ensureDamage(fightId: number): Promise<void> {

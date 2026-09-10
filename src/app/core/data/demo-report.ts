@@ -3,6 +3,7 @@ import {
   DamageEvent,
   DeathEvent,
   FightEvents,
+  FightPerformance,
   PlayerInfo,
   PlayerRole,
   Report,
@@ -448,6 +449,36 @@ export function buildDemoReport(): DemoData {
   };
 
   return { report, players, eventsByFight, damageByFight };
+}
+
+/** Synthetic per-player damage/healing totals + parses for the demo report. */
+export function buildDemoPerformance(fight: ReportFight, players: PlayerInfo[]): FightPerformance {
+  const random = mulberry32(0xbeef + fight.id);
+  const seconds = (fight.endTime - fight.startTime) / 1000;
+  const entries = players.map((p) => {
+    const dps =
+      p.role === 'dps'
+        ? 1_500_000 + random() * 900_000
+        : p.role === 'tank'
+          ? 700_000 + random() * 300_000
+          : 200_000 + random() * 150_000;
+    const hps =
+      p.role === 'healer'
+        ? 1_100_000 + random() * 600_000
+        : p.role === 'tank'
+          ? 150_000 + random() * 100_000
+          : 30_000 + random() * 60_000;
+    return {
+      actorId: p.id,
+      name: p.name,
+      damage: Math.round(dps * seconds),
+      healing: Math.round(hps * seconds),
+    };
+  });
+  const parses = fight.kill
+    ? Object.fromEntries(players.map((p) => [p.name, Math.round(15 + random() * 84)]))
+    : null;
+  return { entries, parses };
 }
 
 /** Synthetic damage-taken ticks: each boss cast clips a few random raiders. */
