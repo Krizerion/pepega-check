@@ -139,6 +139,11 @@ export class PullAnalysis {
     }
     const damage = this.store.damageByFight();
     const players = new Map(this.store.players().map((p) => [p.id, p]));
+    // Only true enemy mechanics: damage sourced by NPCs, not player self-damage
+    // (Fel Armor, Burning Rush, trinkets…) or environment effects.
+    const npcSources = new Set(
+      report.actors.filter((a) => a.type === 'NPC' && a.name !== 'Environment').map((a) => a.id),
+    );
 
     interface Agg {
       hits: number;
@@ -168,6 +173,9 @@ export class PullAnalysis {
 
       for (const event of damage.get(fight.id) ?? []) {
         if (event.abilityGameID <= 1 || !players.has(event.targetID)) {
+          continue;
+        }
+        if (event.sourceID === null || !npcSources.has(event.sourceID)) {
           continue;
         }
         if (cutoff !== null && event.timestamp > cutoff) {

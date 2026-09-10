@@ -11,6 +11,18 @@ describe('classifyAbility', () => {
     expect(classifyAbility(2825, 'Bloodlust')).toBe('utility');
   });
 
+  it('classifies Midnight consumables', () => {
+    expect(classifyAbility(1236994, 'Potion of Recklessness')).toBe('combat-pot');
+    expect(classifyAbility(1250533, "Freightrunner's Flask")).toBe('combat-pot');
+    expect(classifyAbility(1236648, 'Lightfused Mana Potion')).toBe('combat-pot');
+    expect(classifyAbility(1234768, 'Silvermoon Health Potion')).toBe('health-pot');
+    expect(classifyAbility(452930, 'Demonic Healthstone')).toBe('health-pot');
+  });
+
+  it('does not count crafting spells as consumable usage', () => {
+    expect(classifyAbility(6201, 'Create Healthstone')).toBeNull();
+  });
+
   it('falls back to name patterns for unknown consumable IDs', () => {
     expect(classifyAbility(999999, 'Fancy New Healing Potion')).toBe('health-pot');
     expect(classifyAbility(999996, 'Silvermoon Health Potion')).toBe('health-pot');

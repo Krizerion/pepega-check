@@ -258,14 +258,20 @@ const byCategory: Record<AbilityCategory, number[]> = {
   ],
   'health-pot': [
     6262, // Healthstone
-    431416, // Algari Healing Potion
-    452930, // Cavedweller's Delight
+    452930, // Demonic Healthstone
+    431416, // Algari Healing Potion (TWW)
+    1234768, // Silvermoon Health Potion (Midnight)
+    1295247, // Concentrated Silvermoon Health Potion (Midnight)
   ],
   'combat-pot': [
-    // The War Within combat consumables
+    // The War Within
     431932, // Tempered Potion
     431914, // Potion of Unwavering Focus
     431925, // Frontline Potion
+    // Midnight
+    1236994, // Potion of Recklessness
+    1250533, // Freightrunner's Flask (on-use combat flask)
+    1236648, // Lightfused Mana Potion
   ],
 };
 
@@ -294,6 +300,10 @@ export function classifyAbility(spellId: number, name: string | null): AbilityCa
     return byId;
   }
   if (name) {
+    // Crafting spells ("Create Healthstone") are not consumable usage.
+    if (/^create /i.test(name)) {
+      return null;
+    }
     for (const { pattern, category } of NAME_PATTERNS) {
       if (pattern.test(name)) {
         return category;
