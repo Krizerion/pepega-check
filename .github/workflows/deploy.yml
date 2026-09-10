@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    # Weekly rebuild so the embedded shared WCL token stays fresh.
+    - cron: '0 4 * * 1'
 
 permissions:
   contents: read
@@ -36,6 +39,26 @@ jobs:
 
       - name: Build
         run: npx ng build --base-href /pepega-check/
+
+      # Optional: if WCL_CLIENT_ID / WCL_CLIENT_SECRET repo secrets are set,
+      # exchange them for an access token at build time and ship the token
+      # (never the secret) in app-config.json, so teammates need no setup.
+      - name: Embed shared WCL token
+        env:
+          WCL_CLIENT_ID: ${{ secrets.WCL_CLIENT_ID }}
+          WCL_CLIENT_SECRET: ${{ secrets.WCL_CLIENT_SECRET }}
+        run: |
+          if [ -z "$WCL_CLIENT_ID" ] || [ -z "$WCL_CLIENT_SECRET" ]; then
+            echo "WCL secrets not configured - deploying without a shared token."
+            exit 0
+          fi
+          response=$(curl -sf -u "$WCL_CLIENT_ID:$WCL_CLIENT_SECRET" \
+            -d grant_type=client_credentials https://www.warcraftlogs.com/oauth/token)
+          expires_at=$(( ($(date +%s) + $(echo "$response" | jq -r .expires_in)) * 1000 ))
+          echo "$response" | jq --argjson exp "$expires_at" \
+            '{tokenUrl: null, sharedToken: .access_token, sharedTokenExpiresAt: $exp}' \
+            > dist/pepega-check/browser/app-config.json
+          echo "Shared token embedded (valid until $(date -u -d @$((expires_at / 1000)) +%F))."
 
       - uses: actions/configure-pages@v5
         with:

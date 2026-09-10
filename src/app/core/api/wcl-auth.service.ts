@@ -11,12 +11,16 @@ const EXPIRY_MARGIN_MS = 60_000;
 
 /**
  * Optional runtime configuration shipped next to the app (public/app-config.json).
- * `tokenUrl` points at a token broker (e.g. a Cloudflare Worker) that holds the
- * guild's client secret server-side and returns { access_token, expires_in } —
- * so teammates need no credentials and nothing secret ships in the bundle.
+ * Either field lets teammates use the app with zero setup:
+ * - `sharedToken` / `sharedTokenExpiresAt`: a bearer token embedded at deploy
+ *   time (CI exchanges the guild's secret for it; the secret never ships).
+ * - `tokenUrl`: a token broker (e.g. a Cloudflare Worker) that holds the
+ *   secret server-side and returns { access_token, expires_in }.
  */
 interface AppConfig {
-  tokenUrl: string | null;
+  tokenUrl?: string | null;
+  sharedToken?: string | null;
+  sharedTokenExpiresAt?: number | null;
 }
 
 /**
@@ -67,9 +71,9 @@ export class WclAuthService {
 
     const credentials = this.credentialsSignal();
     if (!credentials) {
-      const brokerToken = await this.fetchBrokerToken();
-      if (brokerToken) {
-        return brokerToken;
+      const deploymentToken = await this.fetchDeploymentToken();
+      if (deploymentToken) {
+        return deploymentToken;
       }
       throw new Error(
         'Warcraft Logs API is not configured. Open Settings and enter your client credentials.',
@@ -115,14 +119,19 @@ export class WclAuthService {
 
   private loadAppConfig(): Promise<AppConfig> {
     this.appConfig ??= fetch(new URL('app-config.json', document.baseURI))
-      .then((r) => (r.ok ? (r.json() as Promise<AppConfig>) : { tokenUrl: null }))
-      .catch(() => ({ tokenUrl: null }));
+      .then((r) => (r.ok ? (r.json() as Promise<AppConfig>) : {}))
+      .catch(() => ({}));
     return this.appConfig;
   }
 
-  /** Fetches a token from the deployment's token broker, if one is configured. */
-  private async fetchBrokerToken(): Promise<string | null> {
+  /** Resolves the deployment-wide token: embedded shared token or token broker. */
+  private async fetchDeploymentToken(): Promise<string | null> {
     const config = await this.loadAppConfig();
+
+    if (config.sharedToken && (config.sharedTokenExpiresAt ?? 0) - EXPIRY_MARGIN_MS > Date.now()) {
+      return config.sharedToken;
+    }
+
     if (!config.tokenUrl) {
       return null;
     }

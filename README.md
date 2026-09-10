@@ -72,20 +72,30 @@ The site is served at `https://<user>.github.io/pepega-check/`.
 
 ### Shared credentials without exposing them
 
-A static site cannot keep a secret — anything in the bundle is public. To let teammates use the
-app with **zero setup**, deploy the tiny token broker in
-[`worker/wcl-token-worker.js`](worker/wcl-token-worker.js) as a free Cloudflare Worker: it holds
-the client ID/secret server-side and hands the app a bearer token, restricted by `Origin` to your
-Pages site. Then point the app at it:
+A static site cannot keep a secret — anything in the bundle is public. Two zero-setup options for
+teammates; in both, the **client secret never ships**, only a bearer token that grants read access
+to public Warcraft Logs data (worst case if extracted: someone spends your API rate limit).
+
+**Option A — GitHub Actions secrets (recommended, no extra infrastructure):** add two repository
+secrets under **Settings → Secrets and variables → Actions**:
+
+- `WCL_CLIENT_ID`
+- `WCL_CLIENT_SECRET`
+
+The deploy workflow exchanges them for an access token at build time and embeds the token in
+`app-config.json`. A weekly scheduled rebuild keeps the token fresh (WCL tokens live up to a
+year, so even a quiet repo stays working).
+
+**Option B — Cloudflare Worker token broker:** deploy
+[`worker/wcl-token-worker.js`](worker/wcl-token-worker.js) as a free Worker holding the
+credentials server-side, then set its URL in `public/app-config.json`:
 
 ```json
-// public/app-config.json
 { "tokenUrl": "https://your-worker.your-subdomain.workers.dev" }
 ```
 
-Token resolution order in the app: locally saved credentials (Settings) → the deployment's
-`tokenUrl` broker → error. Realistic worst case if someone finds the worker URL: they spend your
-API rate limit on public data — the secret itself never leaves the worker.
+Token resolution order in the app: locally saved credentials (Settings) → embedded shared token →
+`tokenUrl` broker → error.
 
 ## Tech
 
