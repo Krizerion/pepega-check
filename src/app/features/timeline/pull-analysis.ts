@@ -63,6 +63,9 @@ interface LeaderboardRow {
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './pull-analysis.html',
   styleUrl: './pull-analysis.scss',
+  host: {
+    '(document:keydown.escape)': 'close()',
+  },
 })
 export class PullAnalysis {
   protected readonly store = inject(ReportStore);
@@ -247,6 +250,10 @@ export class PullAnalysis {
 
     return lines;
   });
+
+  protected close(): void {
+    this.store.showAnalysis.set(false);
+  }
 
   protected toggleExpanded(abilityId: number): void {
     const next = new Set(this.expanded());
