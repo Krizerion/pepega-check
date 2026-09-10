@@ -10,6 +10,16 @@ const TOKEN_URL = 'https://www.warcraftlogs.com/oauth/token';
 const EXPIRY_MARGIN_MS = 60_000;
 
 /**
+ * Optional runtime configuration shipped next to the app (public/app-config.json).
+ * `tokenUrl` points at a token broker (e.g. a Cloudflare Worker) that holds the
+ * guild's client secret server-side and returns { access_token, expires_in } —
+ * so teammates need no credentials and nothing secret ships in the bundle.
+ */
+interface AppConfig {
+  tokenUrl: string | null;
+}
+
+/**
  * Manages Warcraft Logs OAuth client-credentials auth entirely in the browser.
  * Credentials and the short-lived access token live in localStorage only.
  */
@@ -45,7 +55,10 @@ export class WclAuthService {
     return token !== null && token.expiresAt - EXPIRY_MARGIN_MS > Date.now();
   }
 
-  /** Returns a valid access token, fetching a new one via client credentials when needed. */
+  /**
+   * Returns a valid access token. Priority: cached token, then locally stored
+   * client credentials, then the deployment's shared token broker (tokenUrl).
+   */
   async getAccessToken(): Promise<string> {
     const cached = this.tokenSignal();
     if (cached && cached.expiresAt - EXPIRY_MARGIN_MS > Date.now()) {
@@ -54,6 +67,10 @@ export class WclAuthService {
 
     const credentials = this.credentialsSignal();
     if (!credentials) {
+      const brokerToken = await this.fetchBrokerToken();
+      if (brokerToken) {
+        return brokerToken;
+      }
       throw new Error(
         'Warcraft Logs API is not configured. Open Settings and enter your client credentials.',
       );
@@ -92,6 +109,38 @@ export class WclAuthService {
   private clearToken(): void {
     this.tokenSignal.set(null);
     localStorage.removeItem(TOKEN_KEY);
+  }
+
+  private appConfig: Promise<AppConfig> | null = null;
+
+  private loadAppConfig(): Promise<AppConfig> {
+    this.appConfig ??= fetch(new URL('app-config.json', document.baseURI))
+      .then((r) => (r.ok ? (r.json() as Promise<AppConfig>) : { tokenUrl: null }))
+      .catch(() => ({ tokenUrl: null }));
+    return this.appConfig;
+  }
+
+  /** Fetches a token from the deployment's token broker, if one is configured. */
+  private async fetchBrokerToken(): Promise<string | null> {
+    const config = await this.loadAppConfig();
+    if (!config.tokenUrl) {
+      return null;
+    }
+    const response = await fetch(config.tokenUrl).catch(() => null);
+    if (!response?.ok) {
+      throw new Error(
+        'The shared Warcraft Logs token service is unreachable. ' +
+          'Try again later, or enter your own credentials in Settings.',
+      );
+    }
+    const body = (await response.json()) as { access_token: string; expires_in: number };
+    const token: WclToken = {
+      accessToken: body.access_token,
+      expiresAt: Date.now() + body.expires_in * 1000,
+    };
+    this.tokenSignal.set(token);
+    writeJson(TOKEN_KEY, token);
+    return token.accessToken;
   }
 }
 
