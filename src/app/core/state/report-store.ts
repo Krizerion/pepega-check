@@ -130,9 +130,14 @@ export class ReportStore {
       return [];
     }
     const events = this.eventsByFight();
+    // In the player view only the selected raider's abilities are relevant.
+    const onlyPlayerId = this.viewMode() === 'player' ? this.selectedPlayerId() : null;
     const counts = new Map<number, number>();
     for (const fight of this.fightsInView()) {
       for (const cast of events.get(fight.id)?.friendlyCasts ?? []) {
+        if (onlyPlayerId !== null && cast.sourceID !== onlyPlayerId) {
+          continue;
+        }
         counts.set(cast.abilityGameID, (counts.get(cast.abilityGameID) ?? 0) + 1);
       }
     }
