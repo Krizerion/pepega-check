@@ -1,0 +1,62 @@
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-icon">🐸</span>
+    <span class="brand-name">Pepega Check</span>
+  </div>
+  <app-report-form class="report-form" />
+  <button class="settings-btn" (click)="settingsOpen.set(true)" title="Warcraft Logs API settings">
+    ⚙ Settings
+  </button>
+</header>
+
+@if (store.error(); as err) {
+  <div class="error-banner">
+    <span>{{ err }}</span>
+    <button class="dismiss" (click)="store.error.set(null)">✕</button>
+  </div>
+}
+
+@switch (store.status()) {
+  @case ('loading') {
+    <div class="center-note">
+      <div class="spinner"></div>
+      <p>Loading report…</p>
+    </div>
+  }
+  @case ('ready') {
+    <app-encounter-tabs />
+    <div class="layout">
+      <app-sidebar />
+      <main class="content">
+        <app-filter-bar />
+        <app-timeline />
+      </main>
+    </div>
+  }
+  @default {
+    <div class="welcome">
+      <h1>🐸 Pepega Check</h1>
+      <p class="tagline">
+        Who pressed what, and when. Paste a Warcraft Logs report link above to see every pull on a
+        timeline — boss abilities, personal defensives, potions, healthstones and major cooldowns
+        for every raider.
+      </p>
+      <ol class="steps">
+        <li>
+          Create a client at
+          <a href="https://www.warcraftlogs.com/api/clients" target="_blank" rel="noreferrer"
+            >warcraftlogs.com/api/clients</a
+          >
+          and enter its ID + secret in <strong>Settings</strong> (stored only in your browser).
+        </li>
+        <li>Paste a report URL or code above and hit <strong>Load</strong>.</li>
+        <li>Pick a boss and a pull — or click a raider to compare them across every pull.</li>
+      </ol>
+      <p class="demo-hint">No credentials handy? Try the demo report from the box above.</p>
+    </div>
+  }
+}
+
+@if (settingsOpen()) {
+  <app-settings-dialog (closed)="settingsOpen.set(false)" />
+}

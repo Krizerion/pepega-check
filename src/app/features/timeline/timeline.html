@@ -1,0 +1,110 @@
+<div class="tl">
+  @if (loading()) {
+    <div class="overlay">
+      <div class="spinner"></div>
+      <span>Loading fight events…</span>
+    </div>
+  }
+
+  <div class="scroll">
+    <div class="grid" [style.width.px]="230 + trackWidth() + 40">
+      <div class="row header">
+        <div
+          class="label corner"
+          [class.clickable]="store.viewMode() === 'player'"
+          role="button"
+          [attr.tabindex]="store.viewMode() === 'player' ? 0 : -1"
+          (click)="backToPull()"
+          (keyup.enter)="backToPull()"
+        >
+          {{ cornerLabel() }}
+        </div>
+        <div class="track header-track">
+          @for (tick of ticks(); track tick.x) {
+            <span class="tick" [style.left.px]="tick.x">{{ tick.label }}</span>
+          }
+        </div>
+      </div>
+
+      @for (row of rows(); track row.key) {
+        <div class="row" [class.boss-row]="row.kind === 'boss'">
+          <div
+            class="label"
+            [class.clickable]="row.navId !== null"
+            role="button"
+            [attr.tabindex]="row.navId !== null ? 0 : -1"
+            (click)="onLabelClick(row)"
+            (keyup.enter)="onLabelClick(row)"
+            [title]="row.kind === 'player' ? 'Show ' + row.label + ' across all pulls' : ''"
+          >
+            @if (row.iconUrl) {
+              <img class="row-icon" [src]="row.iconUrl" (error)="onIconError($event)" alt="" />
+            }
+            <span class="l1" [style.color]="row.labelColor">{{ row.label }}</span>
+            <span class="l2">{{ row.sublabel }}</span>
+          </div>
+          <div class="track" [style.background-size]="gridSize()">
+            @if (row.shadeMs !== null) {
+              <div class="shade" [style.width.px]="x(row.shadeMs)"></div>
+            }
+            @for (marker of row.markers; track $index) {
+              @switch (marker.kind) {
+                @case ('death') {
+                  <span
+                    class="death"
+                    [style.left.px]="x(marker.timeMs)"
+                    (mouseenter)="showTip($event, marker)"
+                    (mouseleave)="hideTip()"
+                    >💀</span
+                  >
+                }
+                @case ('boss') {
+                  <img
+                    class="marker boss-marker"
+                    [class.mini]="row.kind === 'pull'"
+                    [src]="marker.iconUrl"
+                    [style.left.px]="x(marker.timeMs)"
+                    [style.border-color]="marker.color"
+                    (mouseenter)="showTip($event, marker)"
+                    (mouseleave)="hideTip()"
+                    (error)="onIconError($event)"
+                    alt=""
+                  />
+                }
+                @default {
+                  <img
+                    class="marker"
+                    [src]="marker.iconUrl"
+                    [style.left.px]="x(marker.timeMs)"
+                    [style.border-color]="marker.color"
+                    (mouseenter)="showTip($event, marker)"
+                    (mouseleave)="hideTip()"
+                    (error)="onIconError($event)"
+                    alt=""
+                  />
+                }
+              }
+            }
+          </div>
+        </div>
+      } @empty {
+        @if (!loading()) {
+          <p class="no-rows">No data to display — pick a pull from the sidebar.</p>
+        }
+      }
+
+      @for (phase of phaseMarks(); track phase.id) {
+        <div class="phase-line" [style.left.px]="230 + phase.x">
+          <span>P{{ phase.id }}</span>
+        </div>
+      }
+    </div>
+  </div>
+
+  @if (tip(); as t) {
+    <div class="tooltip" [style.left.px]="t.x" [style.top.px]="t.y">
+      <div class="t1">{{ t.title }}</div>
+      <div class="t2">{{ t.sub }}</div>
+    </div>
+  }
+</div>
