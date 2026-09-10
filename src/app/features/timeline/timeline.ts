@@ -8,6 +8,7 @@ import {
   ReportFight,
   fightDuration,
   formatOffset,
+  killingAbilityId,
 } from '../../core/models/wcl';
 import { ReportStore } from '../../core/state/report-store';
 
@@ -203,35 +204,43 @@ export class Timeline {
     }
 
     const enabledRoles = this.store.enabledRoles();
+    const collapsedRoles = this.store.collapsedRoles();
     const players = this.sortedPlayers().filter((p) => enabledRoles.has(p.role));
-    let lastRole: string | null = null;
-    for (const player of players) {
-      if (player.role !== lastRole) {
-        lastRole = player.role;
-        const meta = ROLE_META[player.role];
-        rows.push({
-          key: `section:${player.role}`,
-          kind: 'section',
-          label: `${meta.icon} ${meta.label}`,
-          sublabel: '',
-          labelColor: meta.color,
-          iconUrl: null,
-          shadeMs: null,
-          navId: null,
-          markers: [],
-        });
+
+    for (const role of ['tank', 'healer', 'dps'] as const) {
+      const group = players.filter((p) => p.role === role);
+      if (group.length === 0) {
+        continue;
       }
+      const meta = ROLE_META[role];
+      const collapsed = collapsedRoles.has(role);
       rows.push({
-        key: `player:${player.id}`,
-        kind: 'player',
-        label: player.name,
-        sublabel: player.spec ?? '',
-        labelColor: classColor(player.className),
+        key: `section:${role}`,
+        kind: 'section',
+        label: `${collapsed ? '▸' : '▾'} ${meta.icon} ${meta.label}`,
+        sublabel: collapsed ? `${group.length} hidden` : `${group.length}`,
+        labelColor: meta.color,
         iconUrl: null,
         shadeMs: null,
-        navId: player.id,
-        markers: this.playerMarkers(pull, player, `${player.name}`),
+        navId: null,
+        markers: [],
       });
+      if (collapsed) {
+        continue;
+      }
+      for (const player of group) {
+        rows.push({
+          key: `player:${player.id}`,
+          kind: 'player',
+          label: player.name,
+          sublabel: player.spec ?? '',
+          labelColor: classColor(player.className),
+          iconUrl: null,
+          shadeMs: null,
+          navId: player.id,
+          markers: this.playerMarkers(pull, player, `${player.name}`),
+        });
+      }
     }
 
     return rows;
@@ -392,9 +401,12 @@ export class Timeline {
         if (death.targetID !== player.id) {
           continue;
         }
-        const killer = death.abilityGameID
-          ? (report.abilities.get(death.abilityGameID)?.name ?? null)
-          : null;
+        const abilityId = killingAbilityId(death);
+        const killer =
+          (abilityId !== null ? report.abilities.get(abilityId)?.name : null) ??
+          (death.killerID != null
+            ? (report.actors.find((a) => a.id === death.killerID)?.name ?? null)
+            : null);
         const timeMs = death.timestamp - pull.startTime;
         markers.push({
           timeMs,
@@ -463,12 +475,19 @@ export class Timeline {
   }
 
   protected isClickable(row: TimelineRow): boolean {
-    return row.navId !== null || row.key === 'boss-merged';
+    return row.navId !== null || row.key === 'boss-merged' || row.key.startsWith('section:');
   }
 
   protected onLabelClick(row: TimelineRow): void {
     if (row.key === 'boss-merged') {
       this.store.bossLaneExpanded.set(!this.store.bossLaneExpanded());
+      return;
+    }
+    if (row.key.startsWith('section:')) {
+      const role = row.key.slice('section:'.length);
+      if (role === 'tank' || role === 'healer' || role === 'dps') {
+        this.store.toggleRoleCollapsed(role);
+      }
       return;
     }
     if (row.navId === null) {

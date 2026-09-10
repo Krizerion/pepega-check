@@ -54,6 +54,8 @@ export class ReportStore {
   /** Pull view: false = single merged boss lane, true = one row per boss ability. */
   readonly bossLaneExpanded = signal(false);
   readonly enabledRoles = signal<ReadonlySet<PlayerRole>>(new Set(['tank', 'healer', 'dps']));
+  /** Role groups collapsed in the pull view (headers stay visible). */
+  readonly collapsedRoles = signal<ReadonlySet<PlayerRole>>(new Set());
   /** Pulls excluded from the player view and aggregates. */
   readonly excludedPullIds = signal<ReadonlySet<number>>(new Set());
   /** Pull view: grey out everything after the Nth death (null = off). */
@@ -243,6 +245,19 @@ export class ReportStore {
       next.add(role);
     }
     this.enabledRoles.set(next);
+  }
+
+  toggleRoleCollapsed(role: PlayerRole): void {
+    const next = new Set(this.collapsedRoles());
+    if (!next.delete(role)) {
+      next.add(role);
+    }
+    this.collapsedRoles.set(next);
+  }
+
+  /** Boss ability picker: select every ability (null = all) or none. */
+  selectAllBossAbilities(all: boolean): void {
+    this.selectedBossAbilityIds.set(all ? null : new Set());
   }
 
   toggleCategory(category: AbilityCategory): void {

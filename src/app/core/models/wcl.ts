@@ -77,6 +77,14 @@ export interface DeathEvent {
   timestamp: number;
   targetID: number;
   abilityGameID: number | null;
+  /** The killing blow's ability — WCL sends this separately from abilityGameID. */
+  killingAbilityGameID?: number | null;
+  killerID?: number | null;
+}
+
+/** Best-effort ability id of the killing blow for a death event. */
+export function killingAbilityId(death: DeathEvent): number | null {
+  return death.killingAbilityGameID ?? death.abilityGameID ?? null;
 }
 
 /** All events fetched for a single fight (pull). */

@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 
 import { classifyAbility } from '../../core/data/ability-catalog';
 import { abilityIconUrl, classColor } from '../../core/data/wow';
-import { formatOffset } from '../../core/models/wcl';
+import { formatOffset, killingAbilityId } from '../../core/models/wcl';
 import { ReportStore } from '../../core/state/report-store';
 
 /** Categories that count as "tried to survive" right before a death. */
@@ -163,11 +163,14 @@ export class PullAnalysis {
     }
 
     const players = new Map(this.store.players().map((p) => [p.id, p]));
+    const actors = new Map(report.actors.map((a) => [a.id, a]));
     return [...events.deaths]
       .sort((a, b) => a.timestamp - b.timestamp)
       .map((death) => {
         const player = players.get(death.targetID);
-        const killer = death.abilityGameID ? report.abilities.get(death.abilityGameID) : null;
+        const abilityId = killingAbilityId(death);
+        const killer = abilityId !== null ? report.abilities.get(abilityId) : null;
+        const killerActor = death.killerID != null ? actors.get(death.killerID) : null;
 
         // Last survival attempt by this player shortly before dying.
         let mitigation: DeathRow['mitigation'] = null;
@@ -196,7 +199,8 @@ export class PullAnalysis {
           timeMs: death.timestamp - pull.startTime,
           playerName: player?.name ?? `#${death.targetID}`,
           playerColor: player ? classColor(player.className) : 'var(--text-1)',
-          abilityName: killer?.name ?? 'Unknown',
+          abilityName:
+            killer?.name ?? (killerActor ? `${killerActor.name} (melee/unknown)` : 'Unknown'),
           abilityIcon: abilityIconUrl(killer?.icon),
           mitigation,
         };

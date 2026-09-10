@@ -96,6 +96,10 @@ import { ReportStore } from '../../core/state/report-store';
         }
         @if (pickerOpen()) {
           <div class="picker" (mouseleave)="pickerOpen.set(false)">
+            <div class="picker-actions">
+              <button (click)="store.selectAllBossAbilities(true)">Select all</button>
+              <button (click)="store.selectAllBossAbilities(false)">Deselect all</button>
+            </div>
             @for (ability of store.bossAbilities(); track ability.id) {
               <label class="pick-row">
                 <input
@@ -193,6 +197,20 @@ import { ReportStore } from '../../core/state/report-store';
       border-radius: var(--radius);
       box-shadow: var(--shadow);
       padding: 8px;
+    }
+
+    .picker-actions {
+      display: flex;
+      gap: 6px;
+      padding: 2px 6px 8px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 6px;
+
+      button {
+        flex: 1;
+        padding: 3px 8px;
+        font-size: 12px;
+      }
     }
 
     .pick-row {
