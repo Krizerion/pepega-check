@@ -167,7 +167,9 @@ export class WclApiService {
     ]);
     return {
       friendlyCasts: friendlyCasts.filter((e) => e.type === 'cast'),
-      enemyCasts,
+      // sourceID -1 is the Environment actor: WCL reports ground effects that
+      // players place (e.g. Anti-Magic Zone) as enemy-hostility casts from it.
+      enemyCasts: enemyCasts.filter((e) => e.sourceID >= 0),
       deaths,
     };
   }
