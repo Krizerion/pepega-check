@@ -260,6 +260,13 @@ export class ReportStore {
     this.selectedBossAbilityIds.set(all ? null : new Set());
   }
 
+  /** One-press master switch: any category on → all off; all off → all on. */
+  toggleAllCategories(): void {
+    this.enabledCategories.set(
+      this.enabledCategories().size > 0 ? new Set() : new Set(CATEGORIES.map((c) => c.id)),
+    );
+  }
+
   toggleCategory(category: AbilityCategory): void {
     const next = new Set(this.enabledCategories());
     if (!next.delete(category)) {

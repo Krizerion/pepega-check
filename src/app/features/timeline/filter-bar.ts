@@ -10,49 +10,52 @@ import { ReportStore } from '../../core/state/report-store';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="bar">
-      @for (role of roles; track role.id) {
+      <div class="group">
+        <span class="group-label">Roles:</span>
+        @for (role of roles; track role.id) {
+          <button
+            class="chip"
+            [class.on]="store.enabledRoles().has(role.id)"
+            [style.--chip-color]="role.color"
+            (click)="store.toggleRole(role.id)"
+          >
+            {{ role.icon }} {{ role.label }}
+          </button>
+        }
+      </div>
+
+      <div class="group">
+        <span class="group-label">Abilities:</span>
         <button
           class="chip"
-          [class.on]="store.enabledRoles().has(role.id)"
-          [style.--chip-color]="role.color"
-          (click)="store.toggleRole(role.id)"
+          [class.on]="allCategoriesOn()"
+          [style.--chip-color]="'#7c5cff'"
+          (click)="store.toggleAllCategories()"
+          title="Toggle every ability category on or off"
         >
-          {{ role.icon }} {{ role.label }}
+          All
         </button>
-      }
+        @for (category of categories; track category.id) {
+          <button
+            class="chip"
+            [class.on]="store.enabledCategories().has(category.id)"
+            [style.--chip-color]="category.color"
+            (click)="store.toggleCategory(category.id)"
+          >
+            <span class="dot"></span>{{ category.label }}
+          </button>
+        }
+      </div>
 
-      <span class="divider"></span>
-
-      @for (category of categories; track category.id) {
-        <button
-          class="chip"
-          [class.on]="store.enabledCategories().has(category.id)"
-          [style.--chip-color]="category.color"
-          (click)="store.toggleCategory(category.id)"
-        >
-          <span class="dot"></span>{{ category.label }}
-        </button>
-      }
-
-      <span class="divider"></span>
-
-      <button
-        class="chip"
-        [class.on]="store.showDeaths()"
-        [style.--chip-color]="'#e5484d'"
-        (click)="store.showDeaths.set(!store.showDeaths())"
-      >
-        <span class="dot"></span>Deaths
-      </button>
-
-      <div class="boss-filter">
+      <div class="group boss-filter">
+        <span class="group-label">Boss:</span>
         <button
           class="chip"
           [class.on]="store.showBossAbilities()"
           [style.--chip-color]="'#b17ae8'"
           (click)="store.showBossAbilities.set(!store.showBossAbilities())"
         >
-          <span class="dot"></span>Boss abilities
+          <span class="dot"></span>Abilities
         </button>
         <button
           class="chip caret"
@@ -71,28 +74,6 @@ import { ReportStore } from '../../core/state/report-store';
           >
             <span class="dot"></span>Cast lines
           </button>
-          <button
-            class="chip"
-            [class.on]="store.showAnalysis()"
-            [style.--chip-color]="'#7c5cff'"
-            (click)="store.showAnalysis.set(!store.showAnalysis())"
-            title="Death log and wipe summary for this pull"
-          >
-            📋 Analysis
-          </button>
-          <label class="ignore" title="Grey out everything after the Nth death">
-            Ignore after
-            <select
-              [value]="store.ignoreAfterDeaths() ?? ''"
-              (change)="setIgnoreDeaths(asSelect($event).value)"
-            >
-              <option value="">off</option>
-              @for (n of deathOptions; track n) {
-                <option [value]="n">{{ n }}</option>
-              }
-            </select>
-            deaths
-          </label>
         }
         @if (pickerOpen()) {
           <div class="picker" (mouseleave)="pickerOpen.set(false)">
@@ -118,9 +99,45 @@ import { ReportStore } from '../../core/state/report-store';
         }
       </div>
 
+      <div class="group">
+        <span class="group-label">Deaths:</span>
+        <button
+          class="chip"
+          [class.on]="store.showDeaths()"
+          [style.--chip-color]="'#e5484d'"
+          (click)="store.showDeaths.set(!store.showDeaths())"
+        >
+          <span class="dot"></span>Show
+        </button>
+        @if (store.viewMode() === 'pull') {
+          <button
+            class="chip"
+            [class.on]="store.showAnalysis()"
+            [style.--chip-color]="'#7c5cff'"
+            (click)="store.showAnalysis.set(!store.showAnalysis())"
+            title="Death log and wipe summary for this pull"
+          >
+            📋 Analysis
+          </button>
+          <label class="ignore" title="Grey out everything after the Nth death">
+            ignore after
+            <select
+              [value]="store.ignoreAfterDeaths() ?? ''"
+              (change)="setIgnoreDeaths(asSelect($event).value)"
+            >
+              <option value="">off</option>
+              @for (n of deathOptions; track n) {
+                <option [value]="n">{{ n }}</option>
+              }
+            </select>
+          </label>
+        }
+      </div>
+
       <span class="spacer"></span>
 
-      <div class="zoom">
+      <div class="group zoom">
+        <span class="group-label">Zoom:</span>
         <button (click)="zoom(-1)" [disabled]="store.pxPerSecond() <= 1">−</button>
         <span>{{ store.pxPerSecond() }}x</span>
         <button (click)="zoom(1)" [disabled]="store.pxPerSecond() >= 12">+</button>
@@ -130,19 +147,40 @@ import { ReportStore } from '../../core/state/report-store';
   styles: `
     .bar {
       display: flex;
-      align-items: center;
+      align-items: stretch;
       flex-wrap: wrap;
-      gap: 6px;
+      gap: 8px;
       position: relative;
+    }
+
+    .group {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 10px;
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    .group-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-2);
+      margin-right: 4px;
+      white-space: nowrap;
     }
 
     .chip {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
+      gap: 5px;
+      padding: 3px 9px;
       border-radius: 999px;
-      font-size: 12.5px;
+      font-size: 12px;
+      background: var(--bg-1);
       color: var(--text-2);
 
       .dot {
@@ -165,17 +203,8 @@ import { ReportStore } from '../../core/state/report-store';
       }
     }
 
-    .divider {
-      width: 1px;
-      height: 20px;
-      background: var(--border);
-      margin: 0 4px;
-    }
-
     .boss-filter {
       position: relative;
-      display: inline-flex;
-      gap: 4px;
     }
 
     .caret {
@@ -297,6 +326,10 @@ export class FilterBar {
   ];
   protected readonly pickerOpen = signal(false);
   protected readonly iconUrl = abilityIconUrl;
+
+  protected readonly allCategoriesOn = computed(
+    () => this.store.enabledCategories().size === CATEGORIES.length,
+  );
 
   protected readonly selectionSummary = computed(() => {
     const selected = this.store.selectedBossAbilityIds();

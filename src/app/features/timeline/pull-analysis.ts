@@ -8,7 +8,6 @@ import { ReportStore } from '../../core/state/report-store';
 /** Categories that count as "tried to survive" right before a death. */
 const MITIGATION_CATEGORIES = new Set(['defensive', 'immunity', 'health-pot', 'healing-cd']);
 const MITIGATION_WINDOW_MS = 12_000;
-const CLUSTER_WINDOW_MS = 15_000;
 
 interface DeathRow {
   timeMs: number;
@@ -245,35 +244,6 @@ export class PullAnalysis {
     const [topAbility, topCount] = [...killCounts.entries()].sort((a, b) => b[1] - a[1])[0];
     if (topCount >= 2) {
       lines.push(`Deadliest mechanic: ${topAbility} (${topCount} deaths).`);
-    }
-
-    let clusterStart = 0;
-    let clusterSize = 0;
-    for (let i = 0; i < deaths.length; i++) {
-      let j = i;
-      while (
-        j + 1 < deaths.length &&
-        deaths[j + 1].timeMs - deaths[i].timeMs <= CLUSTER_WINDOW_MS
-      ) {
-        j++;
-      }
-      if (j - i + 1 > clusterSize) {
-        clusterSize = j - i + 1;
-        clusterStart = i;
-      }
-    }
-    if (clusterSize >= 3) {
-      const start = deaths[clusterStart];
-      lines.push(
-        `Death spiral: ${clusterSize} deaths within ${CLUSTER_WINDOW_MS / 1000}s starting at ${formatOffset(start.timeMs)} — likely the point of no return.`,
-      );
-    }
-
-    if (!pull.kill && deaths.length >= 2) {
-      const blame = first.mitigation
-        ? `${first.playerName} died first despite ${first.mitigation.name} — likely raid damage or a missed external`
-        : `${first.playerName} died first without pressing anything — a defensive there might have saved the pull`;
-      lines.push(`Likely wipe starter: ${blame}.`);
     }
 
     return lines;
