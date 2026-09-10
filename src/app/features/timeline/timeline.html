@@ -93,6 +93,14 @@
         }
       }
 
+      @for (line of castLines(); track $index) {
+        <div
+          class="cast-line"
+          [style.left.px]="230 + line.x"
+          [style.border-color]="line.color"
+        ></div>
+      }
+
       @for (phase of phaseMarks(); track phase.id) {
         <div class="phase-line" [style.left.px]="230 + phase.x">
           <span>P{{ phase.id }}</span>

@@ -47,6 +47,17 @@ import { ReportStore } from '../../core/state/report-store';
         >
           {{ selectionSummary() }} ▾
         </button>
+        @if (store.viewMode() === 'pull') {
+          <button
+            class="chip"
+            [class.on]="store.showCastLines()"
+            [style.--chip-color]="'#b17ae8'"
+            (click)="store.showCastLines.set(!store.showCastLines())"
+            title="Extend boss casts as vertical lines through all raider rows"
+          >
+            <span class="dot"></span>Cast lines
+          </button>
+        }
         @if (pickerOpen()) {
           <div class="picker" (mouseleave)="pickerOpen.set(false)">
             @for (ability of store.bossAbilities(); track ability.id) {

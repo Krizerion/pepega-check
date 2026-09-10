@@ -42,6 +42,8 @@ export class ReportStore {
   );
   readonly showDeaths = signal(true);
   readonly showBossAbilities = signal(true);
+  /** Pull view: extend boss casts as vertical lines through all raider rows. */
+  readonly showCastLines = signal(false);
   /** null = all boss abilities visible. */
   readonly selectedBossAbilityIds = signal<ReadonlySet<number> | null>(null);
   readonly pxPerSecond = signal(3);

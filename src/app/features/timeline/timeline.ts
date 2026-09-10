@@ -44,6 +44,18 @@ const ROLE_SORT: Record<string, number> = { tank: 0, healer: 1, dps: 2 };
 const BOSS_COLOR = '#b17ae8';
 const DEATH_COLOR = '#e5484d';
 
+/** Distinct colors assigned to boss abilities (by frequency rank) for markers and cast lines. */
+const BOSS_PALETTE = [
+  '#b17ae8',
+  '#e5484d',
+  '#3fc7eb',
+  '#f5a524',
+  '#46a758',
+  '#f48cba',
+  '#ffd60a',
+  '#8788ee',
+];
+
 @Component({
   selector: 'app-timeline',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -107,6 +119,36 @@ export class Timeline {
       .map((p) => ({ x: (p.startTime - pull.startTime) * pxPerMs, id: p.id }));
   });
 
+  /** Vertical lines through all rows at each visible boss cast (pull view, opt-in). */
+  protected readonly castLines = computed<{ x: number; color: string }[]>(() => {
+    if (
+      this.store.viewMode() !== 'pull' ||
+      !this.store.showCastLines() ||
+      !this.store.showBossAbilities()
+    ) {
+      return [];
+    }
+    const pull = this.store.selectedPull();
+    const events = pull ? this.store.events().get(pull.id) : null;
+    if (!pull || !events) {
+      return [];
+    }
+    const visible = this.store.selectedBossAbilityIds();
+    const colorById = this.bossColorById();
+    const pxPerMs = this.store.pxPerSecond() / 1000;
+    return events.enemyCasts
+      .filter(
+        (c) =>
+          c.type === 'cast' &&
+          colorById.has(c.abilityGameID) &&
+          (visible === null || visible.has(c.abilityGameID)),
+      )
+      .map((c) => ({
+        x: (c.timestamp - pull.startTime) * pxPerMs,
+        color: colorById.get(c.abilityGameID)!,
+      }));
+  });
+
   protected readonly rows = computed<TimelineRow[]>(() =>
     this.store.viewMode() === 'pull' ? this.buildPullRows() : this.buildPlayerRows(),
   );
@@ -124,10 +166,11 @@ export class Timeline {
 
     if (this.store.showBossAbilities()) {
       const visible = this.store.selectedBossAbilityIds();
-      for (const ability of this.store.bossAbilities()) {
+      this.store.bossAbilities().forEach((ability, index) => {
         if (visible !== null && !visible.has(ability.id)) {
-          continue;
+          return;
         }
+        const color = this.bossAbilityColor(index);
         rows.push({
           key: `boss:${ability.id}`,
           kind: 'boss',
@@ -143,12 +186,12 @@ export class Timeline {
               timeMs: c.timestamp - pull.startTime,
               kind: 'boss' as const,
               iconUrl: abilityIconUrl(ability.icon),
-              color: BOSS_COLOR,
+              color,
               title: ability.name,
               sub: formatOffset(c.timestamp - pull.startTime),
             })),
         });
-      }
+      });
     }
 
     for (const player of this.sortedPlayers()) {
@@ -264,6 +307,7 @@ export class Timeline {
     if (visible === null || visible.size === 0) {
       return [];
     }
+    const colorById = this.bossColorById();
     return events.enemyCasts
       .filter((c) => c.type === 'cast' && visible.has(c.abilityGameID))
       .map((c) => {
@@ -273,11 +317,19 @@ export class Timeline {
           timeMs,
           kind: 'boss' as const,
           iconUrl: abilityIconUrl(ability?.icon),
-          color: BOSS_COLOR,
+          color: colorById.get(c.abilityGameID) ?? BOSS_COLOR,
           title: ability?.name ?? `Ability #${c.abilityGameID}`,
           sub: formatOffset(timeMs),
         };
       });
+  }
+
+  private bossAbilityColor(index: number): string {
+    return BOSS_PALETTE[index % BOSS_PALETTE.length];
+  }
+
+  private bossColorById(): Map<number, string> {
+    return new Map(this.store.bossAbilities().map((a, i) => [a.id, this.bossAbilityColor(i)]));
   }
 
   private sortedPlayers(): PlayerInfo[] {
