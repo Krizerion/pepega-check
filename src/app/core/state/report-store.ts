@@ -1,7 +1,12 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 
 import { WclApiService } from '../api/wcl-api.service';
-import { AbilityCategory, CATEGORIES } from '../data/ability-catalog';
+import {
+  AbilityCategory,
+  CATEGORIES,
+  CategoryMeta,
+  classifyAbility,
+} from '../data/ability-catalog';
 import { DEMO_REPORT_CODE, buildDemoReport } from '../data/demo-report';
 import {
   EncounterGroup,
@@ -117,6 +122,47 @@ export class ReportStore {
     const pull = this.selectedPull();
     return pull ? [pull] : [];
   });
+
+  /** Player abilities seen in the fights in view, grouped by catalog category. */
+  readonly abilitiesByCategory = computed<CategoryAbilities[]>(() => {
+    const report = this.report();
+    if (!report) {
+      return [];
+    }
+    const events = this.eventsByFight();
+    const counts = new Map<number, number>();
+    for (const fight of this.fightsInView()) {
+      for (const cast of events.get(fight.id)?.friendlyCasts ?? []) {
+        counts.set(cast.abilityGameID, (counts.get(cast.abilityGameID) ?? 0) + 1);
+      }
+    }
+    const grouped = new Map<AbilityCategory, PlayerAbility[]>();
+    for (const [id, count] of counts) {
+      const ability = report.abilities.get(id);
+      const category = classifyAbility(id, ability?.name ?? null);
+      if (!category) {
+        continue;
+      }
+      const list = grouped.get(category) ?? [];
+      list.push({ id, name: ability?.name ?? `#${id}`, icon: ability?.icon ?? null, count });
+      grouped.set(category, list);
+    }
+    return CATEGORIES.map((meta) => ({
+      meta,
+      abilities: (grouped.get(meta.id) ?? []).sort((a, b) => b.count - a.count),
+    }));
+  });
+
+  /** Individual abilities hidden via their filter-bar icon. */
+  readonly disabledAbilityIds = signal<ReadonlySet<number>>(new Set());
+
+  toggleAbilityDisabled(abilityId: number): void {
+    const next = new Set(this.disabledAbilityIds());
+    if (!next.delete(abilityId)) {
+      next.add(abilityId);
+    }
+    this.disabledAbilityIds.set(next);
+  }
 
   /** Boss/NPC abilities cast during the fights in view, most frequent first. */
   readonly bossAbilities = computed<BossAbility[]>(() => {
@@ -349,12 +395,25 @@ export class ReportStore {
     this.selectedPullId.set(null);
     this.selectedPlayerId.set(null);
     this.selectedBossAbilityIds.set(null);
+    this.disabledAbilityIds.set(new Set());
   }
 
   private fail(message: string): void {
     this.status.set('error');
     this.error.set(message);
   }
+}
+
+export interface PlayerAbility {
+  id: number;
+  name: string;
+  icon: string | null;
+  count: number;
+}
+
+export interface CategoryAbilities {
+  meta: CategoryMeta;
+  abilities: PlayerAbility[];
 }
 
 export interface BossAbility {

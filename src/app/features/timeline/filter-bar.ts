@@ -24,8 +24,7 @@ import { ReportStore } from '../../core/state/report-store';
         }
       </div>
 
-      <div class="group">
-        <span class="group-label">Abilities:</span>
+      <div class="group abilities">
         <button
           class="chip"
           [class.on]="allCategoriesOn()"
@@ -35,15 +34,32 @@ import { ReportStore } from '../../core/state/report-store';
         >
           All
         </button>
-        @for (category of categories; track category.id) {
-          <button
-            class="chip"
-            [class.on]="store.enabledCategories().has(category.id)"
-            [style.--chip-color]="category.color"
-            (click)="store.toggleCategory(category.id)"
-          >
-            <span class="dot"></span>{{ category.label }}
-          </button>
+        @for (cat of store.abilitiesByCategory(); track cat.meta.id) {
+          @if (cat.abilities.length > 0) {
+            <div
+              class="cat"
+              [style.--chip-color]="cat.meta.color"
+              [class.off]="!store.enabledCategories().has(cat.meta.id)"
+            >
+              <button
+                class="cat-label"
+                (click)="store.toggleCategory(cat.meta.id)"
+                [title]="'Toggle ' + cat.meta.label"
+              >
+                {{ cat.meta.label }}:
+              </button>
+              @for (ability of cat.abilities; track ability.id) {
+                <button
+                  class="icon-btn"
+                  [class.hidden-ability]="store.disabledAbilityIds().has(ability.id)"
+                  (click)="store.toggleAbilityDisabled(ability.id)"
+                  [title]="ability.name + ' — ' + ability.count + ' casts (click to toggle)'"
+                >
+                  <img [src]="iconUrl(ability.icon)" (error)="onIconError($event)" alt="" />
+                </button>
+              }
+            </div>
+          }
         }
       </div>
 
@@ -203,6 +219,75 @@ import { ReportStore } from '../../core/state/report-store';
       }
     }
 
+    .abilities {
+      flex-wrap: wrap;
+      row-gap: 6px;
+      flex: 1 1 auto;
+    }
+
+    .cat {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 3px 7px;
+      background: var(--bg-1);
+      border: 1px solid color-mix(in srgb, var(--chip-color) 35%, var(--border));
+      border-radius: 8px;
+
+      &.off {
+        border-color: var(--border);
+
+        .cat-label {
+          color: var(--text-2);
+        }
+
+        .icon-btn img {
+          filter: grayscale(1);
+          opacity: 0.3;
+        }
+      }
+    }
+
+    .cat-label {
+      background: none;
+      border: none;
+      padding: 0 4px 0 0;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--chip-color);
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .icon-btn {
+      padding: 0;
+      width: 24px;
+      height: 24px;
+      border-radius: 5px;
+      border: 1px solid color-mix(in srgb, var(--chip-color) 70%, transparent);
+      background: var(--bg-3);
+      overflow: hidden;
+      flex: 0 0 auto;
+
+      img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      &:hover {
+        border-color: var(--chip-color);
+      }
+
+      &.hidden-ability img {
+        filter: grayscale(1);
+        opacity: 0.25;
+      }
+    }
+
     .boss-filter {
       position: relative;
     }
@@ -317,7 +402,6 @@ import { ReportStore } from '../../core/state/report-store';
 })
 export class FilterBar {
   protected readonly store = inject(ReportStore);
-  protected readonly categories = CATEGORIES;
   protected readonly deathOptions = [1, 2, 3, 4, 5, 8, 10];
   protected readonly roles: { id: PlayerRole; label: string; icon: string; color: string }[] = [
     { id: 'tank', label: 'Tanks', icon: '🛡️', color: '#5e9bff' },

@@ -374,10 +374,11 @@ export class Timeline {
     }
 
     const enabled = this.store.enabledCategories();
+    const disabled = this.store.disabledAbilityIds();
     const markers: TimelineMarker[] = [];
 
     for (const cast of events.friendlyCasts) {
-      if (cast.sourceID !== player.id) {
+      if (cast.sourceID !== player.id || disabled.has(cast.abilityGameID)) {
         continue;
       }
       const ability = report.abilities.get(cast.abilityGameID);
