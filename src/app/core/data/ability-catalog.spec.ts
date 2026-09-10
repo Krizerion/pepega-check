@@ -13,10 +13,18 @@ describe('classifyAbility', () => {
 
   it('classifies Midnight consumables', () => {
     expect(classifyAbility(1236994, 'Potion of Recklessness')).toBe('combat-pot');
-    expect(classifyAbility(1250533, "Freightrunner's Flask")).toBe('combat-pot');
+    expect(classifyAbility(1236616, "Light's Potential")).toBe('combat-pot');
+    expect(classifyAbility(1295132, 'Liquid Luster')).toBe('combat-pot');
+    expect(classifyAbility(1236998, 'Draught of Rampant Abandon')).toBe('combat-pot');
     expect(classifyAbility(1236648, 'Lightfused Mana Potion')).toBe('combat-pot');
     expect(classifyAbility(1234768, 'Silvermoon Health Potion')).toBe('health-pot');
+    expect(classifyAbility(1263074, 'Amani Extract')).toBe('health-pot');
     expect(classifyAbility(452930, 'Demonic Healthstone')).toBe('health-pot');
+  });
+
+  it('does not classify stat flasks as combat pots', () => {
+    expect(classifyAbility(1250533, "Freightrunner's Flask")).toBeNull();
+    expect(classifyAbility(1235110, 'Flask of the Blood Knights')).toBeNull();
   });
 
   it('does not count crafting spells as consumable usage', () => {

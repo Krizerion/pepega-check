@@ -262,6 +262,7 @@ const byCategory: Record<AbilityCategory, number[]> = {
     431416, // Algari Healing Potion (TWW)
     1234768, // Silvermoon Health Potion (Midnight)
     1295247, // Concentrated Silvermoon Health Potion (Midnight)
+    1263074, // Amani Extract (Midnight, HoT potion)
   ],
   'combat-pot': [
     // The War Within
@@ -269,9 +270,14 @@ const byCategory: Record<AbilityCategory, number[]> = {
     431914, // Potion of Unwavering Focus
     431925, // Frontline Potion
     // Midnight
+    1236616, // Light's Potential
     1236994, // Potion of Recklessness
-    1250533, // Freightrunner's Flask (on-use combat flask)
+    1236998, // Draught of Rampant Abandon
+    1238443, // Potion of Zealotry
+    1295132, // Liquid Luster
+    1295015, // Alluring Nostrum
     1236648, // Lightfused Mana Potion
+    1239479, // Potion of Devoured Dreams
   ],
 };
 
