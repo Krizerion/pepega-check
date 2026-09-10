@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { CATEGORIES } from '../../core/data/ability-catalog';
 import { abilityIconUrl } from '../../core/data/wow';
 import { PlayerRole } from '../../core/models/wcl';
-import { ReportStore } from '../../core/state/report-store';
+import { CategoryAbilities, ReportStore } from '../../core/state/report-store';
 
 @Component({
   selector: 'app-filter-bar',
@@ -52,7 +52,7 @@ import { ReportStore } from '../../core/state/report-store';
                 <button
                   class="icon-btn"
                   [class.hidden-ability]="store.disabledAbilityIds().has(ability.id)"
-                  (click)="store.toggleAbilityDisabled(ability.id)"
+                  (click)="toggleAbility(cat, ability.id)"
                   [title]="ability.name + ' — ' + ability.count + ' casts (click to toggle)'"
                 >
                   <img [src]="iconUrl(ability.icon)" (error)="onIconError($event)" alt="" />
@@ -107,6 +107,15 @@ import { ReportStore } from '../../core/state/report-store';
                 <img [src]="iconUrl(ability.icon)" (error)="onIconError($event)" alt="" />
                 <span class="pick-name">{{ ability.name }}</span>
                 <span class="pick-count">×{{ ability.count }}</span>
+                <a
+                  class="pick-link"
+                  [href]="'https://www.wowhead.com/spell=' + ability.id"
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Open on Wowhead"
+                  (click)="$event.stopPropagation()"
+                  >↗</a
+                >
               </label>
             } @empty {
               <p class="empty">No boss casts loaded yet.</p>
@@ -356,6 +365,17 @@ import { ReportStore } from '../../core/state/report-store';
         color: var(--text-2);
         font-size: 11px;
       }
+
+      .pick-link {
+        color: var(--text-2);
+        text-decoration: none;
+        font-size: 12px;
+        padding: 0 2px;
+
+        &:hover {
+          color: var(--accent);
+        }
+      }
     }
 
     .empty {
@@ -424,6 +444,14 @@ export class FilterBar {
   protected isVisible(abilityId: number): boolean {
     const selected = this.store.selectedBossAbilityIds();
     return selected === null || selected.has(abilityId);
+  }
+
+  protected toggleAbility(cat: CategoryAbilities, abilityId: number): void {
+    this.store.toggleAbilityVisibility(
+      cat.meta.id,
+      abilityId,
+      cat.abilities.map((a) => a.id),
+    );
   }
 
   protected toggle(abilityId: number): void {

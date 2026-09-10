@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 
 import {
   CastEvent,
+  DamageEvent,
   DeathEvent,
   FightEvents,
   PlayerInfo,
@@ -171,10 +172,15 @@ export class WclApiService {
     };
   }
 
+  /** Damage taken by friendly players — the basis for mechanic analysis. */
+  async fetchDamageTaken(code: string, fight: ReportFight): Promise<DamageEvent[]> {
+    return this.fetchAllEvents<DamageEvent>(code, fight, 'DamageTaken', 'Friendlies');
+  }
+
   private async fetchAllEvents<T>(
     code: string,
     fight: ReportFight,
-    dataType: 'Casts' | 'Deaths',
+    dataType: 'Casts' | 'Deaths' | 'DamageTaken',
     hostility: 'Friendlies' | 'Enemies',
   ): Promise<T[]> {
     const events: T[] = [];

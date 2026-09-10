@@ -1,0 +1,144 @@
+<div class="panel">
+  <div class="head">
+    <h3>📋 {{ title() }}</h3>
+    <div class="tabs">
+      <button [class.active]="scope() === 'pull'" (click)="scope.set('pull')">This pull</button>
+      <button [class.active]="scope() === 'all'" (click)="scope.set('all')">
+        All pulls ({{ store.includedPulls().length }})
+      </button>
+    </div>
+  </div>
+
+  @if (!ready()) {
+    <p class="loading"><span class="mini-spinner"></span> Loading damage events…</p>
+  }
+
+  @if (summary().length > 0) {
+    <ul class="summary">
+      @for (line of summary(); track $index) {
+        <li>{{ line }}</li>
+      }
+    </ul>
+  }
+
+  @if (mechanics().length > 0) {
+    <h4>Mechanic hits</h4>
+    <table class="mechanics">
+      <thead>
+        <tr>
+          <th></th>
+          <th>Mechanic</th>
+          <th class="num">Hits</th>
+          <th class="num">Players hit</th>
+          <th class="num">Total dmg</th>
+          <th class="num">Avg hit</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of mechanics(); track row.id) {
+          <tr class="mech-row" (click)="toggleExpanded(row.id)">
+            <td class="chev">{{ expanded().has(row.id) ? '▾' : '▸' }}</td>
+            <td class="mech-name">
+              <img [src]="row.icon" (error)="onIconError($event)" alt="" />
+              <a
+                [href]="row.url"
+                target="_blank"
+                rel="noreferrer"
+                title="Open on Wowhead"
+                (click)="$event.stopPropagation()"
+                >{{ row.name }}</a
+              >
+            </td>
+            <td class="num">{{ row.hits }}</td>
+            <td class="num">{{ row.playersHit }}</td>
+            <td class="num strong">{{ fmt(row.totalDamage) }}</td>
+            <td class="num">{{ fmt(row.avgHit) }}</td>
+          </tr>
+          @if (expanded().has(row.id)) {
+            <tr class="detail">
+              <td></td>
+              <td colspan="5">
+                @for (player of row.perPlayer; track player.name) {
+                  <div class="bar-row">
+                    <span class="bar-name" [style.color]="player.color">{{ player.name }}</span>
+                    <span class="bar-track">
+                      <span class="bar" [style.width.%]="player.pct"></span>
+                    </span>
+                    <span class="bar-value">{{ fmt(player.damage) }}</span>
+                    <span class="bar-hits">×{{ player.hits }}</span>
+                  </div>
+                }
+              </td>
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+  }
+
+  @if (scope() === 'pull' && deathRows().length > 0) {
+    <h4>Deaths</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Player</th>
+          <th>Killed by</th>
+          <th>Last defensive / health pot before death</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (death of deathRows(); track $index) {
+          <tr>
+            <td class="time">{{ format(death.timeMs) }}</td>
+            <td>
+              <span class="name" [style.color]="death.playerColor">{{ death.playerName }}</span>
+            </td>
+            <td>
+              <img [src]="death.abilityIcon" (error)="onIconError($event)" alt="" />
+              @if (death.abilityUrl) {
+                <a [href]="death.abilityUrl" target="_blank" rel="noreferrer">{{
+                  death.abilityName
+                }}</a>
+              } @else {
+                {{ death.abilityName }}
+              }
+            </td>
+            <td>
+              @if (death.mitigation; as m) {
+                <img [src]="m.icon" (error)="onIconError($event)" alt="" />
+                {{ m.name }} <span class="ago">{{ m.secondsBefore }}s before</span>
+              } @else {
+                <span class="none">— nothing pressed</span>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+
+  @if (scope() === 'all' && deathLeaderboard().length > 0) {
+    <h4>Deaths across pulls</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>Player</th>
+          <th class="num">Deaths</th>
+          <th class="num">…without pressing anything</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of deathLeaderboard(); track row.name) {
+          <tr>
+            <td>
+              <span class="name" [style.color]="row.color">{{ row.name }}</span>
+            </td>
+            <td class="num">{{ row.deaths }}</td>
+            <td class="num" [class.none]="row.unmitigated > 0">{{ row.unmitigated }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

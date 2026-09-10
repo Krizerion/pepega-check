@@ -87,6 +87,16 @@ export function killingAbilityId(death: DeathEvent): number | null {
   return death.killingAbilityGameID ?? death.abilityGameID ?? null;
 }
 
+/** A damage-taken tick on a friendly player. */
+export interface DamageEvent {
+  timestamp: number;
+  sourceID: number | null;
+  targetID: number;
+  abilityGameID: number;
+  amount: number;
+  absorbed?: number | null;
+}
+
 /** All events fetched for a single fight (pull). */
 export interface FightEvents {
   friendlyCasts: CastEvent[];

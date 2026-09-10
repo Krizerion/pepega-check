@@ -1,5 +1,6 @@
 import {
   CastEvent,
+  DamageEvent,
   DeathEvent,
   FightEvents,
   PlayerInfo,
@@ -374,6 +375,7 @@ export interface DemoData {
   report: Report;
   players: PlayerInfo[];
   eventsByFight: Map<number, FightEvents>;
+  damageByFight: Map<number, DamageEvent[]>;
 }
 
 export function buildDemoReport(): DemoData {
@@ -396,6 +398,7 @@ export function buildDemoReport(): DemoData {
 
   const fights: ReportFight[] = [];
   const eventsByFight = new Map<number, FightEvents>();
+  const damageByFight = new Map<number, DamageEvent[]>();
   let clock = 10 * 60_000;
 
   PULLS.forEach((pull, index) => {
@@ -419,10 +422,9 @@ export function buildDemoReport(): DemoData {
       phaseTransitions: buildPhases(startTime, pull.duration, pull.phase),
     });
 
-    eventsByFight.set(
-      id,
-      buildFightEvents(random, players, bossActorId, startTime, endTime, isKill),
-    );
+    const fightEvents = buildFightEvents(random, players, bossActorId, startTime, endTime, isKill);
+    eventsByFight.set(id, fightEvents);
+    damageByFight.set(id, buildDamageEvents(id, players, bossActorId, fightEvents));
   });
 
   const report: Report = {
@@ -445,7 +447,33 @@ export function buildDemoReport(): DemoData {
     abilities,
   };
 
-  return { report, players, eventsByFight };
+  return { report, players, eventsByFight, damageByFight };
+}
+
+/** Synthetic damage-taken ticks: each boss cast clips a few random raiders. */
+function buildDamageEvents(
+  fightId: number,
+  players: PlayerInfo[],
+  bossActorId: number,
+  events: FightEvents,
+): DamageEvent[] {
+  const random = mulberry32(0xd00d + fightId);
+  const damage: DamageEvent[] = [];
+  for (const cast of events.enemyCasts) {
+    const victims = 2 + Math.floor(random() * 7);
+    const pool = [...players].sort(() => random() - 0.5).slice(0, victims);
+    for (const victim of pool) {
+      damage.push({
+        timestamp: Math.round(cast.timestamp + random() * 2000),
+        sourceID: bossActorId,
+        targetID: victim.id,
+        abilityGameID: cast.abilityGameID,
+        amount: Math.round(150_000 + random() * 550_000),
+        absorbed: random() < 0.3 ? Math.round(random() * 120_000) : 0,
+      });
+    }
+  }
+  return damage.sort((a, b) => a.timestamp - b.timestamp);
 }
 
 function buildPhases(

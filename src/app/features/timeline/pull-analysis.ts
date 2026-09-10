@@ -1,214 +1,213 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+  untracked,
+} from '@angular/core';
 
 import { classifyAbility } from '../../core/data/ability-catalog';
 import { abilityIconUrl, classColor } from '../../core/data/wow';
-import { formatOffset, killingAbilityId } from '../../core/models/wcl';
+import { DeathEvent, ReportFight, formatOffset, killingAbilityId } from '../../core/models/wcl';
 import { ReportStore } from '../../core/state/report-store';
 
 /** Categories that count as "tried to survive" right before a death. */
 const MITIGATION_CATEGORIES = new Set(['defensive', 'immunity', 'health-pot', 'healing-cd']);
 const MITIGATION_WINDOW_MS = 12_000;
 
+type AnalysisScope = 'pull' | 'all';
+
 interface DeathRow {
   timeMs: number;
+  playerId: number;
   playerName: string;
   playerColor: string;
   abilityName: string;
   abilityIcon: string;
+  abilityUrl: string | null;
   mitigation: { name: string; icon: string; secondsBefore: number } | null;
+}
+
+interface PlayerHits {
+  name: string;
+  color: string;
+  damage: number;
+  hits: number;
+  /** Bar width relative to the hardest-hit player, 0-100. */
+  pct: number;
+}
+
+interface MechanicRow {
+  id: number;
+  name: string;
+  icon: string;
+  url: string;
+  hits: number;
+  playersHit: number;
+  totalDamage: number;
+  avgHit: number;
+  perPlayer: PlayerHits[];
+}
+
+interface LeaderboardRow {
+  name: string;
+  color: string;
+  deaths: number;
+  unmitigated: number;
 }
 
 @Component({
   selector: 'app-pull-analysis',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <div class="panel">
-      <h3>📋 {{ title() }}</h3>
-      <ul class="summary">
-        @for (line of summary(); track $index) {
-          <li>{{ line }}</li>
-        }
-      </ul>
-
-      @if (deathRows().length > 0) {
-        <table>
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Player</th>
-              <th>Killed by</th>
-              <th>Last defensive / health pot before death</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (death of deathRows(); track $index) {
-              <tr>
-                <td class="time">{{ format(death.timeMs) }}</td>
-                <td>
-                  <span class="name" [style.color]="death.playerColor">{{ death.playerName }}</span>
-                </td>
-                <td>
-                  <img [src]="death.abilityIcon" (error)="onIconError($event)" alt="" />
-                  {{ death.abilityName }}
-                </td>
-                <td>
-                  @if (death.mitigation; as m) {
-                    <img [src]="m.icon" (error)="onIconError($event)" alt="" />
-                    {{ m.name }} <span class="ago">{{ m.secondsBefore }}s before</span>
-                  } @else {
-                    <span class="none">— nothing pressed</span>
-                  }
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      }
-    </div>
-  `,
-  styles: `
-    .panel {
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      background: var(--bg-1);
-      padding: 12px 16px;
-      max-height: 300px;
-      overflow-y: auto;
-    }
-
-    h3 {
-      margin: 0 0 8px;
-      font-size: 13px;
-    }
-
-    .summary {
-      margin: 0 0 10px;
-      padding-left: 18px;
-      color: var(--text-1);
-      font-size: 13px;
-
-      li {
-        margin-bottom: 2px;
-      }
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12.5px;
-    }
-
-    th {
-      text-align: left;
-      color: var(--text-2);
-      font-weight: 500;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      padding: 4px 10px 4px 0;
-      border-bottom: 1px solid var(--border);
-    }
-
-    td {
-      padding: 4px 10px 4px 0;
-      border-bottom: 1px solid rgba(51, 51, 62, 0.5);
-      vertical-align: middle;
-
-      img {
-        width: 16px;
-        height: 16px;
-        border-radius: 3px;
-        vertical-align: -3px;
-        margin-right: 4px;
-      }
-    }
-
-    .time {
-      font-variant-numeric: tabular-nums;
-      color: var(--text-2);
-    }
-
-    .name {
-      font-weight: 600;
-    }
-
-    .ago {
-      color: var(--text-2);
-      font-size: 11px;
-    }
-
-    .none {
-      color: var(--danger);
-    }
-  `,
+  templateUrl: './pull-analysis.html',
+  styleUrl: './pull-analysis.scss',
 })
 export class PullAnalysis {
   protected readonly store = inject(ReportStore);
   protected readonly format = formatOffset;
+  protected readonly scope = signal<AnalysisScope>('pull');
+  protected readonly expanded = signal<ReadonlySet<number>>(new Set());
+
+  constructor() {
+    // Lazily pull damage (and, for the all-pulls tab, cast/death) events.
+    effect(() => {
+      const fights = this.scopeFights();
+      const scope = this.scope();
+      untracked(() => {
+        for (const fight of fights) {
+          void this.store.ensureDamage(fight.id);
+          if (scope === 'all') {
+            void this.store.ensureEvents(fight.id);
+          }
+        }
+      });
+    });
+  }
+
+  protected readonly scopeFights = computed<ReportFight[]>(() => {
+    if (this.scope() === 'all') {
+      return this.store.includedPulls();
+    }
+    const pull = this.store.selectedPull();
+    return pull ? [pull] : [];
+  });
+
+  protected readonly ready = computed(() => {
+    const damage = this.store.damageByFight();
+    const events = this.store.events();
+    const needEvents = this.scope() === 'all';
+    return this.scopeFights().every((f) => damage.has(f.id) && (!needEvents || events.has(f.id)));
+  });
 
   protected readonly title = computed(() => {
+    if (this.scope() === 'all') {
+      return `Encounter analysis — ${this.scopeFights().length} pulls`;
+    }
     const pull = this.store.selectedPull();
     const pulls = this.store.selectedEncounter()?.pulls ?? [];
     const index = pull ? pulls.findIndex((p) => p.id === pull.id) + 1 : 0;
     return `Pull ${index} analysis`;
   });
 
-  protected readonly deathRows = computed<DeathRow[]>(() => {
+  /** Wipefest-style mechanic table from damage-taken events. */
+  protected readonly mechanics = computed<MechanicRow[]>(() => {
     const report = this.store.report();
-    const pull = this.store.selectedPull();
-    const events = pull ? this.store.events().get(pull.id) : null;
-    if (!report || !pull || !events) {
+    if (!report) {
       return [];
     }
-
+    const damage = this.store.damageByFight();
     const players = new Map(this.store.players().map((p) => [p.id, p]));
-    const actors = new Map(report.actors.map((a) => [a.id, a]));
-    return [...events.deaths]
-      .sort((a, b) => a.timestamp - b.timestamp)
-      .map((death) => {
-        const player = players.get(death.targetID);
-        const abilityId = killingAbilityId(death);
-        const killer = abilityId !== null ? report.abilities.get(abilityId) : null;
-        const killerActor = death.killerID != null ? actors.get(death.killerID) : null;
 
-        // Last survival attempt by this player shortly before dying.
-        let mitigation: DeathRow['mitigation'] = null;
-        for (const cast of events.friendlyCasts) {
-          if (cast.sourceID !== death.targetID) {
-            continue;
-          }
-          if (cast.timestamp > death.timestamp) {
-            break;
-          }
-          if (death.timestamp - cast.timestamp > MITIGATION_WINDOW_MS) {
-            continue;
-          }
-          const ability = report.abilities.get(cast.abilityGameID);
-          const category = classifyAbility(cast.abilityGameID, ability?.name ?? null);
-          if (category && MITIGATION_CATEGORIES.has(category)) {
-            mitigation = {
-              name: ability?.name ?? `#${cast.abilityGameID}`,
-              icon: abilityIconUrl(ability?.icon),
-              secondsBefore: Math.round((death.timestamp - cast.timestamp) / 1000),
-            };
-          }
+    interface Agg {
+      hits: number;
+      total: number;
+      byPlayer: Map<number, { damage: number; hits: number }>;
+    }
+    const byAbility = new Map<number, Agg>();
+
+    for (const fight of this.scopeFights()) {
+      for (const event of damage.get(fight.id) ?? []) {
+        if (event.abilityGameID <= 1 || !players.has(event.targetID)) {
+          continue;
         }
+        const amount = event.amount + (event.absorbed ?? 0);
+        let agg = byAbility.get(event.abilityGameID);
+        if (!agg) {
+          agg = { hits: 0, total: 0, byPlayer: new Map() };
+          byAbility.set(event.abilityGameID, agg);
+        }
+        agg.hits++;
+        agg.total += amount;
+        const p = agg.byPlayer.get(event.targetID) ?? { damage: 0, hits: 0 };
+        p.damage += amount;
+        p.hits++;
+        agg.byPlayer.set(event.targetID, p);
+      }
+    }
 
+    return [...byAbility.entries()]
+      .map(([id, agg]) => {
+        const ability = report.abilities.get(id);
+        const perPlayer = [...agg.byPlayer.entries()]
+          .map(([playerId, stats]) => {
+            const player = players.get(playerId);
+            return {
+              name: player?.name ?? `#${playerId}`,
+              color: player ? classColor(player.className) : 'var(--text-1)',
+              damage: stats.damage,
+              hits: stats.hits,
+              pct: 0,
+            };
+          })
+          .sort((a, b) => b.damage - a.damage);
+        const max = perPlayer[0]?.damage ?? 1;
+        for (const row of perPlayer) {
+          row.pct = Math.max(2, Math.round((row.damage / max) * 100));
+        }
         return {
-          timeMs: death.timestamp - pull.startTime,
-          playerName: player?.name ?? `#${death.targetID}`,
-          playerColor: player ? classColor(player.className) : 'var(--text-1)',
-          abilityName:
-            killer?.name ?? (killerActor ? `${killerActor.name} (melee/unknown)` : 'Unknown'),
-          abilityIcon: abilityIconUrl(killer?.icon),
-          mitigation,
+          id,
+          name: ability?.name ?? `Ability #${id}`,
+          icon: abilityIconUrl(ability?.icon),
+          url: `https://www.wowhead.com/spell=${id}`,
+          hits: agg.hits,
+          playersHit: agg.byPlayer.size,
+          totalDamage: agg.total,
+          avgHit: Math.round(agg.total / agg.hits),
+          perPlayer,
         };
-      });
+      })
+      .sort((a, b) => b.totalDamage - a.totalDamage);
+  });
+
+  protected readonly deathRows = computed<DeathRow[]>(() => {
+    const pull = this.store.selectedPull();
+    return pull ? this.buildDeathRows(pull) : [];
+  });
+
+  /** All-pulls tab: deaths per player, with how many had nothing pressed. */
+  protected readonly deathLeaderboard = computed<LeaderboardRow[]>(() => {
+    const rows = new Map<number, LeaderboardRow>();
+    for (const fight of this.scopeFights()) {
+      for (const death of this.buildDeathRows(fight)) {
+        let row = rows.get(death.playerId);
+        if (!row) {
+          row = { name: death.playerName, color: death.playerColor, deaths: 0, unmitigated: 0 };
+          rows.set(death.playerId, row);
+        }
+        row.deaths++;
+        if (!death.mitigation) {
+          row.unmitigated++;
+        }
+      }
+    }
+    return [...rows.values()].sort((a, b) => b.deaths - a.deaths || b.unmitigated - a.unmitigated);
   });
 
   protected readonly summary = computed<string[]>(() => {
     const pull = this.store.selectedPull();
-    if (!pull) {
+    if (!pull || this.scope() !== 'pull') {
       return [];
     }
     const deaths = this.deathRows();
@@ -249,7 +248,90 @@ export class PullAnalysis {
     return lines;
   });
 
+  protected toggleExpanded(abilityId: number): void {
+    const next = new Set(this.expanded());
+    if (!next.delete(abilityId)) {
+      next.add(abilityId);
+    }
+    this.expanded.set(next);
+  }
+
+  protected fmt(value: number): string {
+    if (value >= 1_000_000) {
+      return `${(value / 1_000_000).toFixed(1)}m`;
+    }
+    if (value >= 1_000) {
+      return `${Math.round(value / 1_000)}k`;
+    }
+    return `${value}`;
+  }
+
   protected onIconError(event: Event): void {
     (event.target as HTMLImageElement).style.visibility = 'hidden';
+  }
+
+  private buildDeathRows(fight: ReportFight): DeathRow[] {
+    const report = this.store.report();
+    const events = this.store.events().get(fight.id);
+    if (!report || !events) {
+      return [];
+    }
+
+    const players = new Map(this.store.players().map((p) => [p.id, p]));
+    const actors = new Map(report.actors.map((a) => [a.id, a]));
+    return [...events.deaths]
+      .sort((a, b) => a.timestamp - b.timestamp)
+      .map((death) => {
+        const player = players.get(death.targetID);
+        const abilityId = killingAbilityId(death);
+        const killer = abilityId !== null ? report.abilities.get(abilityId) : null;
+        const killerActor = death.killerID != null ? actors.get(death.killerID) : null;
+
+        return {
+          timeMs: death.timestamp - fight.startTime,
+          playerId: death.targetID,
+          playerName: player?.name ?? `#${death.targetID}`,
+          playerColor: player ? classColor(player.className) : 'var(--text-1)',
+          abilityName:
+            killer?.name ?? (killerActor ? `${killerActor.name} (melee/unknown)` : 'Unknown'),
+          abilityIcon: abilityIconUrl(killer?.icon),
+          abilityUrl:
+            abilityId !== null && abilityId > 1
+              ? `https://www.wowhead.com/spell=${abilityId}`
+              : null,
+          mitigation: this.findMitigation(death, fight),
+        };
+      });
+  }
+
+  /** Last survival attempt by the dying player shortly before their death. */
+  private findMitigation(death: DeathEvent, fight: ReportFight): DeathRow['mitigation'] {
+    const report = this.store.report();
+    const events = this.store.events().get(fight.id);
+    if (!report || !events) {
+      return null;
+    }
+    let mitigation: DeathRow['mitigation'] = null;
+    for (const cast of events.friendlyCasts) {
+      if (cast.sourceID !== death.targetID) {
+        continue;
+      }
+      if (cast.timestamp > death.timestamp) {
+        break;
+      }
+      if (death.timestamp - cast.timestamp > MITIGATION_WINDOW_MS) {
+        continue;
+      }
+      const ability = report.abilities.get(cast.abilityGameID);
+      const category = classifyAbility(cast.abilityGameID, ability?.name ?? null);
+      if (category && MITIGATION_CATEGORIES.has(category)) {
+        mitigation = {
+          name: ability?.name ?? `#${cast.abilityGameID}`,
+          icon: abilityIconUrl(ability?.icon),
+          secondsBefore: Math.round((death.timestamp - cast.timestamp) / 1000),
+        };
+      }
+    }
+    return mitigation;
   }
 }

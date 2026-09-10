@@ -9,6 +9,7 @@ import {
 } from '../data/ability-catalog';
 import { DEMO_REPORT_CODE, buildDemoReport } from '../data/demo-report';
 import {
+  DamageEvent,
   EncounterGroup,
   FightEvents,
   PlayerInfo,
@@ -37,7 +38,11 @@ export class ReportStore {
   private readonly eventsByFight = signal<ReadonlyMap<number, FightEvents>>(new Map());
   readonly loadingFights = signal<ReadonlySet<number>>(new Set());
   private readonly inflight = new Map<number, Promise<void>>();
+  readonly damageByFight = signal<ReadonlyMap<number, DamageEvent[]>>(new Map());
+  readonly loadingDamage = signal<ReadonlySet<number>>(new Set());
+  private readonly inflightDamage = new Map<number, Promise<void>>();
   private demoEvents: Map<number, FightEvents> | null = null;
+  private demoDamage: Map<number, DamageEvent[]> | null = null;
   private playerDetailsCache = new Map<string, PlayerInfo[]>();
 
   // --- selection ---
@@ -169,6 +174,35 @@ export class ReportStore {
     this.disabledAbilityIds.set(next);
   }
 
+  /**
+   * Icon click in the filter bar. Visible ability → hide it. Hidden ability in
+   * an enabled category → show it. Hidden because its whole category is off →
+   * enable the category but reveal only this ability.
+   */
+  toggleAbilityVisibility(
+    category: AbilityCategory,
+    abilityId: number,
+    categoryAbilityIds: number[],
+  ): void {
+    const categoryOn = this.enabledCategories().has(category);
+    const disabled = new Set(this.disabledAbilityIds());
+
+    if (categoryOn) {
+      if (!disabled.delete(abilityId)) {
+        disabled.add(abilityId);
+      }
+    } else {
+      for (const id of categoryAbilityIds) {
+        if (id !== abilityId) {
+          disabled.add(id);
+        }
+      }
+      disabled.delete(abilityId);
+      this.enabledCategories.set(new Set([...this.enabledCategories(), category]));
+    }
+    this.disabledAbilityIds.set(disabled);
+  }
+
   /** Boss/NPC abilities cast during the fights in view, most frequent first. */
   readonly bossAbilities = computed<BossAbility[]>(() => {
     const report = this.report();
@@ -217,8 +251,11 @@ export class ReportStore {
     this.resetSelection();
     this.eventsByFight.set(new Map());
     this.inflight.clear();
+    this.damageByFight.set(new Map());
+    this.inflightDamage.clear();
     this.playerDetailsCache.clear();
     this.demoEvents = null;
+    this.demoDamage = null;
 
     try {
       if (code === DEMO_REPORT_CODE) {
@@ -226,6 +263,7 @@ export class ReportStore {
         this.report.set(demo.report);
         this.players.set(demo.players);
         this.demoEvents = demo.eventsByFight;
+        this.demoDamage = demo.damageByFight;
       } else {
         const report = await this.api.fetchReport(code);
         if (report.fights.length === 0) {
@@ -352,7 +390,53 @@ export class ReportStore {
     this.players.set(players);
   }
 
-  private async ensureEvents(fightId: number): Promise<void> {
+  /** Pulls of the selected encounter minus the excluded ones. */
+  readonly includedPulls = computed<ReportFight[]>(() => {
+    const excluded = this.excludedPullIds();
+    return (this.selectedEncounter()?.pulls ?? []).filter((p) => !excluded.has(p.id));
+  });
+
+  /** Lazily loads damage-taken events for one fight (analysis panel). */
+  async ensureDamage(fightId: number): Promise<void> {
+    if (this.damageByFight().get(fightId)) {
+      return;
+    }
+    const existing = this.inflightDamage.get(fightId);
+    if (existing) {
+      return existing;
+    }
+    const task = this.fetchDamage(fightId);
+    this.inflightDamage.set(fightId, task);
+    try {
+      await task;
+    } finally {
+      this.inflightDamage.delete(fightId);
+    }
+  }
+
+  private async fetchDamage(fightId: number): Promise<void> {
+    const report = this.report();
+    const fight = report?.fights.find((f) => f.id === fightId);
+    if (!report || !fight) {
+      return;
+    }
+    this.loadingDamage.update((set) => new Set(set).add(fightId));
+    try {
+      const damage =
+        this.demoDamage?.get(fightId) ?? (await this.api.fetchDamageTaken(report.code, fight));
+      this.damageByFight.update((map) => new Map(map).set(fightId, damage));
+    } catch (e) {
+      this.error.set(e instanceof Error ? e.message : 'Failed to load damage events.');
+    } finally {
+      this.loadingDamage.update((set) => {
+        const next = new Set(set);
+        next.delete(fightId);
+        return next;
+      });
+    }
+  }
+
+  async ensureEvents(fightId: number): Promise<void> {
     if (this.eventsByFight().get(fightId)) {
       return;
     }
