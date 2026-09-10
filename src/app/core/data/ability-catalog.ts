@@ -275,7 +275,7 @@ const byCategory: Record<AbilityCategory, number[]> = {
  */
 const NAME_PATTERNS: { pattern: RegExp; category: AbilityCategory }[] = [
   { pattern: /healthstone/i, category: 'health-pot' },
-  { pattern: /health(?:ing)? potion/i, category: 'health-pot' },
+  { pattern: /(?:health|healing) potion/i, category: 'health-pot' },
   { pattern: /\bpotion\b/i, category: 'combat-pot' },
   { pattern: /bloodlust|heroism|time warp|fury of the aspects/i, category: 'utility' },
 ];
