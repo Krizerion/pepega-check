@@ -10,14 +10,22 @@ from your browser; credentials live in your browser's localStorage only.
 
 ## Views
 
-- **Pull view** — one pull, one row per raider (grouped tank → healer → dps), plus a row per boss
-  ability at the top (with cast counts). Phase transitions are drawn as dashed vertical lines.
+- **Pull view** — one pull, one row per raider (grouped under Tanks / Healers / DPS headers), with
+  all boss casts merged into a sticky horizontal lane at the top (click its label to expand into
+  per-ability rows). Phase transitions are drawn as dashed vertical lines, and the "Cast lines"
+  toggle extends every boss cast down through the raider rows.
 - **Player view** — click any raider (in the sidebar or on a row label) to flip the axis: one row
   per pull, showing everything that raider pressed on every attempt, with the wipe point marked.
-  Select boss abilities in the filter bar to overlay their casts as small ticks on each pull.
+  A reference boss lane (from the longest included pull) sits on top, and selected boss abilities
+  are overlaid as small ticks on each pull row. Untick pulls in the sidebar to exclude them.
+- **Pull analysis** — the 📋 Analysis toggle shows a death log for the selected pull (who died,
+  to what, and whether they pressed a defensive or health pot in the 12s before) plus a heuristic
+  wipe summary: first blood, deadliest mechanic, death spirals and the likely wipe starter. The
+  "Ignore after N deaths" selector greys out everything on the timeline past the Nth death.
 
-Hover any icon for the ability name and timestamp. Use the category chips to filter, the boss
-ability picker to focus on specific mechanics, and the −/+ controls to zoom the time axis.
+Hover any icon for the ability name and timestamp. Use the role and category chips to filter
+(health pots/stones and combat pots are separate), the boss ability picker to focus on specific
+mechanics, and the −/+ controls to zoom the time axis.
 
 ## Getting started
 

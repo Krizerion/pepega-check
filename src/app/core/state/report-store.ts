@@ -54,6 +54,11 @@ export class ReportStore {
   /** Pull view: false = single merged boss lane, true = one row per boss ability. */
   readonly bossLaneExpanded = signal(false);
   readonly enabledRoles = signal<ReadonlySet<PlayerRole>>(new Set(['tank', 'healer', 'dps']));
+  /** Pulls excluded from the player view and aggregates. */
+  readonly excludedPullIds = signal<ReadonlySet<number>>(new Set());
+  /** Pull view: grey out everything after the Nth death (null = off). */
+  readonly ignoreAfterDeaths = signal<number | null>(null);
+  readonly showAnalysis = signal(false);
   /** null = all boss abilities visible. */
   readonly selectedBossAbilityIds = signal<ReadonlySet<number> | null>(null);
   readonly pxPerSecond = signal(3);
@@ -104,7 +109,8 @@ export class ReportStore {
       return [];
     }
     if (this.viewMode() === 'player') {
-      return encounter.pulls;
+      const excluded = this.excludedPullIds();
+      return encounter.pulls.filter((p) => !excluded.has(p.id));
     }
     const pull = this.selectedPull();
     return pull ? [pull] : [];
@@ -188,6 +194,7 @@ export class ReportStore {
     this.selectedEncounterKey.set(key);
     this.selectedPlayerId.set(null);
     this.selectedBossAbilityIds.set(null);
+    this.excludedPullIds.set(new Set());
 
     const encounter = this.selectedEncounter();
     if (!encounter) {
@@ -209,12 +216,25 @@ export class ReportStore {
   /** Switches to the player-across-pulls view and loads events for every pull. */
   async selectPlayer(playerId: number): Promise<void> {
     this.selectedPlayerId.set(playerId);
-    const pulls = this.selectedEncounter()?.pulls ?? [];
+    const excluded = this.excludedPullIds();
+    const pulls = (this.selectedEncounter()?.pulls ?? []).filter((p) => !excluded.has(p.id));
     await Promise.all(pulls.map((pull) => this.ensureEvents(pull.id)));
   }
 
   showPullView(): void {
     this.selectedPlayerId.set(null);
+  }
+
+  togglePullExcluded(fightId: number): void {
+    const next = new Set(this.excludedPullIds());
+    if (!next.delete(fightId)) {
+      next.add(fightId);
+    }
+    this.excludedPullIds.set(next);
+    // A pull re-included while in the player view needs its events loaded.
+    if (!next.has(fightId) && this.viewMode() === 'player') {
+      void this.ensureEvents(fightId);
+    }
   }
 
   toggleRole(role: PlayerRole): void {

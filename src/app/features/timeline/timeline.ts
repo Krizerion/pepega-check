@@ -163,6 +163,26 @@ export class Timeline {
       }));
   });
 
+  /** Fight-relative time of the Nth death in the selected pull ("ignore after X deaths"). */
+  protected readonly cutoffMs = computed<number | null>(() => {
+    const n = this.store.ignoreAfterDeaths();
+    if (n === null || this.store.viewMode() !== 'pull') {
+      return null;
+    }
+    const pull = this.store.selectedPull();
+    const events = pull ? this.store.events().get(pull.id) : null;
+    if (!pull || !events || events.deaths.length < n) {
+      return null;
+    }
+    const sorted = [...events.deaths].sort((a, b) => a.timestamp - b.timestamp);
+    return sorted[n - 1].timestamp - pull.startTime;
+  });
+
+  protected isDimmed(marker: TimelineMarker): boolean {
+    const cutoff = this.cutoffMs();
+    return cutoff !== null && marker.timeMs > cutoff;
+  }
+
   protected readonly rows = computed<TimelineRow[]>(() =>
     this.store.viewMode() === 'pull' ? this.buildPullRows() : this.buildPlayerRows(),
   );
@@ -218,7 +238,7 @@ export class Timeline {
   }
 
   /** Boss casts: one merged horizontal lane by default, per-ability rows when expanded. */
-  private bossRows(pull: ReportFight, events: FightEvents): TimelineRow[] {
+  private bossRows(pull: ReportFight, events: FightEvents, labelSuffix = ''): TimelineRow[] {
     const visible = this.store.selectedBossAbilityIds();
     const abilities = this.store
       .bossAbilities()
@@ -249,7 +269,7 @@ export class Timeline {
         {
           key: 'boss-merged',
           kind: 'boss-merged',
-          label: '▸ Boss abilities',
+          label: `▸ Boss abilities${labelSuffix}`,
           sublabel: `${merged.length} casts`,
           labelColor: BOSS_COLOR,
           iconUrl: null,
@@ -264,7 +284,7 @@ export class Timeline {
       {
         key: 'boss-merged',
         kind: 'section',
-        label: '▾ Boss abilities',
+        label: `▾ Boss abilities${labelSuffix}`,
         sublabel: 'collapse',
         labelColor: BOSS_COLOR,
         iconUrl: null,
@@ -288,12 +308,30 @@ export class Timeline {
 
   private buildPlayerRows(): TimelineRow[] {
     const player = this.store.selectedPlayer();
-    const pulls = this.store.selectedEncounter()?.pulls ?? [];
+    const allPulls = this.store.selectedEncounter()?.pulls ?? [];
+    const pulls = this.store.fightsInView();
     if (!player) {
       return [];
     }
 
-    return pulls.map((pull, index) => {
+    const rows: TimelineRow[] = [];
+
+    // Reference boss lane: the longest included pull spans the whole time axis.
+    if (this.store.showBossAbilities()) {
+      const reference = pulls.reduce<ReportFight | null>(
+        (best, p) => (!best || fightDuration(p) > fightDuration(best) ? p : best),
+        null,
+      );
+      const events = reference ? this.store.events().get(reference.id) : null;
+      if (reference && events) {
+        rows.push(
+          ...this.bossRows(reference, events, ` · from pull ${allPulls.indexOf(reference) + 1}`),
+        );
+      }
+    }
+
+    const pullRows = pulls.map((pull) => {
+      const index = allPulls.indexOf(pull);
       const markers = this.playerMarkers(pull, player, `Pull ${index + 1}`);
       if (this.store.showBossAbilities()) {
         markers.push(...this.bossTickMarkers(pull));
@@ -314,6 +352,8 @@ export class Timeline {
         markers,
       };
     });
+
+    return [...rows, ...pullRows];
   }
 
   /** Classified casts + death markers for one player during one pull. */

@@ -57,6 +57,7 @@
                 @case ('death') {
                   <span
                     class="death"
+                    [class.dimmed]="isDimmed(marker)"
                     [style.left.px]="x(marker.timeMs)"
                     (mouseenter)="showTip($event, marker)"
                     (mouseleave)="hideTip()"
@@ -68,6 +69,7 @@
                     class="marker boss-marker"
                     [class.mini]="row.kind === 'pull'"
                     [class.laned]="marker.lane !== undefined"
+                    [class.dimmed]="isDimmed(marker)"
                     [src]="marker.iconUrl"
                     [style.left.px]="x(marker.timeMs)"
                     [style.top.px]="marker.lane === undefined ? null : 5 + marker.lane * 15"
@@ -81,6 +83,7 @@
                 @default {
                   <img
                     class="marker"
+                    [class.dimmed]="isDimmed(marker)"
                     [src]="marker.iconUrl"
                     [style.left.px]="x(marker.timeMs)"
                     [style.border-color]="marker.color"
@@ -106,6 +109,12 @@
           [style.left.px]="230 + line.x"
           [style.border-color]="line.color"
         ></div>
+      }
+
+      @if (cutoffMs(); as cutoff) {
+        <div class="cutoff-line" [style.left.px]="230 + x(cutoff)">
+          <span>☠ {{ store.ignoreAfterDeaths() }} deaths</span>
+        </div>
       }
 
       @for (phase of phaseMarks(); track phase.id) {

@@ -71,6 +71,28 @@ import { ReportStore } from '../../core/state/report-store';
           >
             <span class="dot"></span>Cast lines
           </button>
+          <button
+            class="chip"
+            [class.on]="store.showAnalysis()"
+            [style.--chip-color]="'#7c5cff'"
+            (click)="store.showAnalysis.set(!store.showAnalysis())"
+            title="Death log and wipe summary for this pull"
+          >
+            📋 Analysis
+          </button>
+          <label class="ignore" title="Grey out everything after the Nth death">
+            Ignore after
+            <select
+              [value]="store.ignoreAfterDeaths() ?? ''"
+              (change)="setIgnoreDeaths(asSelect($event).value)"
+            >
+              <option value="">off</option>
+              @for (n of deathOptions; track n) {
+                <option [value]="n">{{ n }}</option>
+              }
+            </select>
+            deaths
+          </label>
         }
         @if (pickerOpen()) {
           <div class="picker" (mouseleave)="pickerOpen.set(false)">
@@ -214,6 +236,19 @@ import { ReportStore } from '../../core/state/report-store';
       flex: 1;
     }
 
+    .ignore {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12.5px;
+      color: var(--text-2);
+
+      select {
+        padding: 2px 6px;
+        font-size: 12.5px;
+      }
+    }
+
     .zoom {
       display: inline-flex;
       align-items: center;
@@ -236,6 +271,7 @@ import { ReportStore } from '../../core/state/report-store';
 export class FilterBar {
   protected readonly store = inject(ReportStore);
   protected readonly categories = CATEGORIES;
+  protected readonly deathOptions = [1, 2, 3, 4, 5, 8, 10];
   protected readonly roles: { id: PlayerRole; label: string; icon: string; color: string }[] = [
     { id: 'tank', label: 'Tanks', icon: '🛡️', color: '#5e9bff' },
     { id: 'healer', label: 'Healers', icon: '💚', color: '#46a758' },
@@ -269,5 +305,13 @@ export class FilterBar {
 
   protected onIconError(event: Event): void {
     (event.target as HTMLImageElement).style.visibility = 'hidden';
+  }
+
+  protected asSelect(event: Event): HTMLSelectElement {
+    return event.target as HTMLSelectElement;
+  }
+
+  protected setIgnoreDeaths(value: string): void {
+    this.store.ignoreAfterDeaths.set(value === '' ? null : Number(value));
   }
 }

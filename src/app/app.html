@@ -29,6 +29,9 @@
       <app-sidebar />
       <main class="content">
         <app-filter-bar />
+        @if (store.viewMode() === 'pull' && store.showAnalysis()) {
+          <app-pull-analysis />
+        }
         <app-timeline />
       </main>
     </div>

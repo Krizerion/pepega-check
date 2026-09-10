@@ -6,14 +6,17 @@ describe('classifyAbility', () => {
     expect(classifyAbility(642, 'Divine Shield')).toBe('immunity');
     expect(classifyAbility(98008, 'Spirit Link Totem')).toBe('healing-cd');
     expect(classifyAbility(190319, 'Combustion')).toBe('offensive');
-    expect(classifyAbility(6262, 'Healthstone')).toBe('potion');
+    expect(classifyAbility(6262, 'Healthstone')).toBe('health-pot');
+    expect(classifyAbility(431932, 'Tempered Potion')).toBe('combat-pot');
     expect(classifyAbility(2825, 'Bloodlust')).toBe('utility');
   });
 
   it('falls back to name patterns for unknown consumable IDs', () => {
-    expect(classifyAbility(999999, 'Fancy New Healing Potion')).toBe('potion');
-    expect(classifyAbility(999998, 'Potion of Future Expansions')).toBe('potion');
-    expect(classifyAbility(999997, 'Invigorating Healthstone')).toBe('potion');
+    expect(classifyAbility(999999, 'Fancy New Healing Potion')).toBe('health-pot');
+    expect(classifyAbility(999996, 'Silvermoon Health Potion')).toBe('health-pot');
+    expect(classifyAbility(999997, 'Demonic Healthstone')).toBe('health-pot');
+    expect(classifyAbility(999998, 'Potion of Future Expansions')).toBe('combat-pot');
+    expect(classifyAbility(999995, 'Grand Mana Potion')).toBe('combat-pot');
   });
 
   it('returns null for rotational abilities', () => {

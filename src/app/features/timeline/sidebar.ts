@@ -16,26 +16,34 @@ const ROLE_ORDER: { role: PlayerRole; label: string; icon: string }[] = [
   template: `
     <aside class="sidebar">
       <section class="pulls">
-        <h3>Pulls</h3>
+        <h3>Pulls <span class="hint">— untick to exclude</span></h3>
         @for (pull of store.selectedEncounter()?.pulls ?? []; track pull.id; let i = $index) {
-          <button
-            class="pull"
-            [class.active]="store.viewMode() === 'pull' && pull.id === store.selectedPullId()"
-            (click)="selectPull(pull.id)"
-          >
-            <span class="pull-num">{{ i + 1 }}</span>
-            <span class="pull-time">{{ duration(pull) }}</span>
-            @if (pull.kill) {
-              <span class="badge kill">Kill</span>
-            } @else {
-              <span class="badge pct" [style.color]="pctColor(pull.fightPercentage)">
-                {{ pct(pull.fightPercentage) }}
-              </span>
-              @if (pull.lastPhase !== null) {
-                <span class="phase">P{{ pull.lastPhase }}</span>
+          <div class="pull-line" [class.excluded]="store.excludedPullIds().has(pull.id)">
+            <input
+              type="checkbox"
+              [checked]="!store.excludedPullIds().has(pull.id)"
+              (change)="store.togglePullExcluded(pull.id)"
+              [attr.aria-label]="'Include pull ' + (i + 1)"
+            />
+            <button
+              class="pull"
+              [class.active]="store.viewMode() === 'pull' && pull.id === store.selectedPullId()"
+              (click)="selectPull(pull.id)"
+            >
+              <span class="pull-num">{{ i + 1 }}</span>
+              <span class="pull-time">{{ duration(pull) }}</span>
+              @if (pull.kill) {
+                <span class="badge kill">Kill</span>
+              } @else {
+                <span class="badge pct" [style.color]="pctColor(pull.fightPercentage)">
+                  {{ pct(pull.fightPercentage) }}
+                </span>
+                @if (pull.lastPhase !== null) {
+                  <span class="phase">P{{ pull.lastPhase }}</span>
+                }
               }
-            }
-          </button>
+            </button>
+          </div>
         }
       </section>
 
@@ -83,6 +91,26 @@ const ROLE_ORDER: { role: PlayerRole; label: string; icon: string }[] = [
         letter-spacing: normal;
         font-weight: 400;
         font-size: 11px;
+      }
+    }
+
+    .pull-line {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+
+      input {
+        flex: 0 0 auto;
+        accent-color: var(--accent);
+        cursor: pointer;
+      }
+
+      &.excluded .pull {
+        opacity: 0.4;
+      }
+
+      .pull {
+        flex: 1 1 auto;
       }
     }
 

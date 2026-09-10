@@ -5,7 +5,14 @@
  */
 
 export type AbilityCategory =
-  'defensive' | 'immunity' | 'healing-cd' | 'offensive' | 'movement' | 'utility' | 'potion';
+  | 'defensive'
+  | 'immunity'
+  | 'healing-cd'
+  | 'offensive'
+  | 'movement'
+  | 'utility'
+  | 'health-pot'
+  | 'combat-pot';
 
 export interface CategoryMeta {
   id: AbilityCategory;
@@ -20,7 +27,8 @@ export const CATEGORIES: CategoryMeta[] = [
   { id: 'offensive', label: 'Offensive CDs', color: '#e5484d' },
   { id: 'movement', label: 'Movement', color: '#3fc7eb' },
   { id: 'utility', label: 'Utility', color: '#8788ee' },
-  { id: 'potion', label: 'Potions & Stones', color: '#f48cba' },
+  { id: 'health-pot', label: 'Health Pots & Stones', color: '#f48cba' },
+  { id: 'combat-pot', label: 'Combat Pots', color: '#c084fc' },
 ];
 
 const byCategory: Record<AbilityCategory, number[]> = {
@@ -248,14 +256,16 @@ const byCategory: Record<AbilityCategory, number[]> = {
     108199, // Gorefiend's Grasp
     192077, // Wind Rush Totem
   ],
-  potion: [
+  'health-pot': [
     6262, // Healthstone
-    // The War Within consumables
     431416, // Algari Healing Potion
+    452930, // Cavedweller's Delight
+  ],
+  'combat-pot': [
+    // The War Within combat consumables
     431932, // Tempered Potion
     431914, // Potion of Unwavering Focus
     431925, // Frontline Potion
-    452930, // Cavedweller's Delight
   ],
 };
 
@@ -264,9 +274,9 @@ const byCategory: Record<AbilityCategory, number[]> = {
  * every expansion) are still classified without a catalog update.
  */
 const NAME_PATTERNS: { pattern: RegExp; category: AbilityCategory }[] = [
-  { pattern: /healthstone/i, category: 'potion' },
-  { pattern: /healing potion/i, category: 'potion' },
-  { pattern: /\bpotion\b/i, category: 'potion' },
+  { pattern: /healthstone/i, category: 'health-pot' },
+  { pattern: /health(?:ing)? potion/i, category: 'health-pot' },
+  { pattern: /\bpotion\b/i, category: 'combat-pot' },
   { pattern: /bloodlust|heroism|time warp|fury of the aspects/i, category: 'utility' },
 ];
 
