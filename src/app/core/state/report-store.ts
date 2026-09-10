@@ -3,7 +3,14 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { WclApiService } from '../api/wcl-api.service';
 import { AbilityCategory, CATEGORIES } from '../data/ability-catalog';
 import { DEMO_REPORT_CODE, buildDemoReport } from '../data/demo-report';
-import { EncounterGroup, FightEvents, PlayerInfo, Report, ReportFight } from '../models/wcl';
+import {
+  EncounterGroup,
+  FightEvents,
+  PlayerInfo,
+  PlayerRole,
+  Report,
+  ReportFight,
+} from '../models/wcl';
 
 export type LoadStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -44,6 +51,9 @@ export class ReportStore {
   readonly showBossAbilities = signal(true);
   /** Pull view: extend boss casts as vertical lines through all raider rows. */
   readonly showCastLines = signal(false);
+  /** Pull view: false = single merged boss lane, true = one row per boss ability. */
+  readonly bossLaneExpanded = signal(false);
+  readonly enabledRoles = signal<ReadonlySet<PlayerRole>>(new Set(['tank', 'healer', 'dps']));
   /** null = all boss abilities visible. */
   readonly selectedBossAbilityIds = signal<ReadonlySet<number> | null>(null);
   readonly pxPerSecond = signal(3);
@@ -205,6 +215,14 @@ export class ReportStore {
 
   showPullView(): void {
     this.selectedPlayerId.set(null);
+  }
+
+  toggleRole(role: PlayerRole): void {
+    const next = new Set(this.enabledRoles());
+    if (!next.delete(role)) {
+      next.add(role);
+    }
+    this.enabledRoles.set(next);
   }
 
   toggleCategory(category: AbilityCategory): void {

@@ -27,12 +27,17 @@
       </div>
 
       @for (row of rows(); track row.key) {
-        <div class="row" [class.boss-row]="row.kind === 'boss'">
+        <div
+          class="row"
+          [class.boss-row]="row.kind === 'boss'"
+          [class.merged]="row.kind === 'boss-merged'"
+          [class.section]="row.kind === 'section'"
+        >
           <div
             class="label"
-            [class.clickable]="row.navId !== null"
+            [class.clickable]="isClickable(row)"
             role="button"
-            [attr.tabindex]="row.navId !== null ? 0 : -1"
+            [attr.tabindex]="isClickable(row) ? 0 : -1"
             (click)="onLabelClick(row)"
             (keyup.enter)="onLabelClick(row)"
             [title]="row.kind === 'player' ? 'Show ' + row.label + ' across all pulls' : ''"
@@ -62,8 +67,10 @@
                   <img
                     class="marker boss-marker"
                     [class.mini]="row.kind === 'pull'"
+                    [class.laned]="marker.lane !== undefined"
                     [src]="marker.iconUrl"
                     [style.left.px]="x(marker.timeMs)"
+                    [style.top.px]="marker.lane === undefined ? null : 5 + marker.lane * 15"
                     [style.border-color]="marker.color"
                     (mouseenter)="showTip($event, marker)"
                     (mouseleave)="hideTip()"

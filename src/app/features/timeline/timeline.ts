@@ -2,7 +2,13 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 
 import { classifyAbility, CATEGORY_META } from '../../core/data/ability-catalog';
 import { abilityIconUrl, classColor } from '../../core/data/wow';
-import { PlayerInfo, ReportFight, fightDuration, formatOffset } from '../../core/models/wcl';
+import {
+  FightEvents,
+  PlayerInfo,
+  ReportFight,
+  fightDuration,
+  formatOffset,
+} from '../../core/models/wcl';
 import { ReportStore } from '../../core/state/report-store';
 
 interface TimelineMarker {
@@ -12,11 +18,13 @@ interface TimelineMarker {
   color: string;
   title: string;
   sub: string;
+  /** Stagger level within a merged lane (undefined = vertically centered). */
+  lane?: number;
 }
 
 interface TimelineRow {
   key: string;
-  kind: 'boss' | 'player' | 'pull';
+  kind: 'boss' | 'boss-merged' | 'section' | 'player' | 'pull';
   label: string;
   sublabel: string;
   labelColor: string;
@@ -41,6 +49,12 @@ interface Tooltip {
 }
 
 const ROLE_SORT: Record<string, number> = { tank: 0, healer: 1, dps: 2 };
+
+const ROLE_META: Record<string, { label: string; icon: string; color: string }> = {
+  tank: { label: 'Tanks', icon: '🛡️', color: '#5e9bff' },
+  healer: { label: 'Healers', icon: '💚', color: '#46a758' },
+  dps: { label: 'DPS', icon: '⚔️', color: '#e5484d' },
+};
 const BOSS_COLOR = '#b17ae8';
 const DEATH_COLOR = '#e5484d';
 
@@ -165,36 +179,28 @@ export class Timeline {
     const rows: TimelineRow[] = [];
 
     if (this.store.showBossAbilities()) {
-      const visible = this.store.selectedBossAbilityIds();
-      this.store.bossAbilities().forEach((ability, index) => {
-        if (visible !== null && !visible.has(ability.id)) {
-          return;
-        }
-        const color = this.bossAbilityColor(index);
-        rows.push({
-          key: `boss:${ability.id}`,
-          kind: 'boss',
-          label: ability.name,
-          sublabel: `×${ability.count}`,
-          labelColor: BOSS_COLOR,
-          iconUrl: abilityIconUrl(ability.icon),
-          shadeMs: null,
-          navId: null,
-          markers: events.enemyCasts
-            .filter((c) => c.type === 'cast' && c.abilityGameID === ability.id)
-            .map((c) => ({
-              timeMs: c.timestamp - pull.startTime,
-              kind: 'boss' as const,
-              iconUrl: abilityIconUrl(ability.icon),
-              color,
-              title: ability.name,
-              sub: formatOffset(c.timestamp - pull.startTime),
-            })),
-        });
-      });
+      rows.push(...this.bossRows(pull, events));
     }
 
-    for (const player of this.sortedPlayers()) {
+    const enabledRoles = this.store.enabledRoles();
+    const players = this.sortedPlayers().filter((p) => enabledRoles.has(p.role));
+    let lastRole: string | null = null;
+    for (const player of players) {
+      if (player.role !== lastRole) {
+        lastRole = player.role;
+        const meta = ROLE_META[player.role];
+        rows.push({
+          key: `section:${player.role}`,
+          kind: 'section',
+          label: `${meta.icon} ${meta.label}`,
+          sublabel: '',
+          labelColor: meta.color,
+          iconUrl: null,
+          shadeMs: null,
+          navId: null,
+          markers: [],
+        });
+      }
       rows.push({
         key: `player:${player.id}`,
         kind: 'player',
@@ -209,6 +215,75 @@ export class Timeline {
     }
 
     return rows;
+  }
+
+  /** Boss casts: one merged horizontal lane by default, per-ability rows when expanded. */
+  private bossRows(pull: ReportFight, events: FightEvents): TimelineRow[] {
+    const visible = this.store.selectedBossAbilityIds();
+    const abilities = this.store
+      .bossAbilities()
+      .map((ability, index) => ({ ability, color: this.bossAbilityColor(index) }))
+      .filter(({ ability }) => visible === null || visible.has(ability.id));
+
+    const markersFor = (abilityId: number, icon: string | null, name: string, color: string) =>
+      events.enemyCasts
+        .filter((c) => c.type === 'cast' && c.abilityGameID === abilityId)
+        .map((c) => ({
+          timeMs: c.timestamp - pull.startTime,
+          kind: 'boss' as const,
+          iconUrl: abilityIconUrl(icon),
+          color,
+          title: name,
+          sub: formatOffset(c.timestamp - pull.startTime),
+        }));
+
+    if (!this.store.bossLaneExpanded()) {
+      const merged: TimelineMarker[] = abilities.flatMap(({ ability, color }, index) =>
+        markersFor(ability.id, ability.icon, ability.name, color).map((m) => ({
+          ...m,
+          lane: index % 3,
+        })),
+      );
+      merged.sort((a, b) => a.timeMs - b.timeMs);
+      return [
+        {
+          key: 'boss-merged',
+          kind: 'boss-merged',
+          label: '▸ Boss abilities',
+          sublabel: `${merged.length} casts`,
+          labelColor: BOSS_COLOR,
+          iconUrl: null,
+          shadeMs: null,
+          navId: null,
+          markers: merged,
+        },
+      ];
+    }
+
+    return [
+      {
+        key: 'boss-merged',
+        kind: 'section',
+        label: '▾ Boss abilities',
+        sublabel: 'collapse',
+        labelColor: BOSS_COLOR,
+        iconUrl: null,
+        shadeMs: null,
+        navId: null,
+        markers: [],
+      },
+      ...abilities.map(({ ability, color }) => ({
+        key: `boss:${ability.id}`,
+        kind: 'boss' as const,
+        label: ability.name,
+        sublabel: `×${ability.count}`,
+        labelColor: BOSS_COLOR,
+        iconUrl: abilityIconUrl(ability.icon),
+        shadeMs: null,
+        navId: null,
+        markers: markersFor(ability.id, ability.icon, ability.name, color),
+      })),
+    ];
   }
 
   private buildPlayerRows(): TimelineRow[] {
@@ -347,7 +422,15 @@ export class Timeline {
     return (timeMs / 1000) * this.store.pxPerSecond();
   }
 
+  protected isClickable(row: TimelineRow): boolean {
+    return row.navId !== null || row.key === 'boss-merged';
+  }
+
   protected onLabelClick(row: TimelineRow): void {
+    if (row.key === 'boss-merged') {
+      this.store.bossLaneExpanded.set(!this.store.bossLaneExpanded());
+      return;
+    }
     if (row.navId === null) {
       return;
     }

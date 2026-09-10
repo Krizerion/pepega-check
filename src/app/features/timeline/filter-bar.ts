@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 
 import { CATEGORIES } from '../../core/data/ability-catalog';
 import { abilityIconUrl } from '../../core/data/wow';
+import { PlayerRole } from '../../core/models/wcl';
 import { ReportStore } from '../../core/state/report-store';
 
 @Component({
@@ -9,6 +10,19 @@ import { ReportStore } from '../../core/state/report-store';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="bar">
+      @for (role of roles; track role.id) {
+        <button
+          class="chip"
+          [class.on]="store.enabledRoles().has(role.id)"
+          [style.--chip-color]="role.color"
+          (click)="store.toggleRole(role.id)"
+        >
+          {{ role.icon }} {{ role.label }}
+        </button>
+      }
+
+      <span class="divider"></span>
+
       @for (category of categories; track category.id) {
         <button
           class="chip"
@@ -222,6 +236,11 @@ import { ReportStore } from '../../core/state/report-store';
 export class FilterBar {
   protected readonly store = inject(ReportStore);
   protected readonly categories = CATEGORIES;
+  protected readonly roles: { id: PlayerRole; label: string; icon: string; color: string }[] = [
+    { id: 'tank', label: 'Tanks', icon: '🛡️', color: '#5e9bff' },
+    { id: 'healer', label: 'Healers', icon: '💚', color: '#46a758' },
+    { id: 'dps', label: 'DPS', icon: '⚔️', color: '#e5484d' },
+  ];
   protected readonly pickerOpen = signal(false);
   protected readonly iconUrl = abilityIconUrl;
 
