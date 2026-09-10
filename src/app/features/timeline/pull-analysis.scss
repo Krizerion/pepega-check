@@ -274,6 +274,40 @@ td.strong {
   font-weight: 700;
 }
 
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+
+  &:hover {
+    color: var(--text-0);
+  }
+}
+
+th.bar-col,
+td.bar-cell {
+  min-width: 96px;
+}
+
+td.bar-cell {
+  position: relative;
+
+  .cell-bar {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    left: 0;
+    border-radius: 2px;
+    opacity: 0.3;
+    pointer-events: none;
+  }
+
+  .cell-value {
+    position: relative;
+    z-index: 1;
+  }
+}
+
 td a {
   color: inherit;
   text-decoration: none;

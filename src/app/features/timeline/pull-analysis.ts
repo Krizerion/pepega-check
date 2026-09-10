@@ -87,8 +87,28 @@ interface PerformanceRow {
   dps: number;
   healing: number;
   hps: number;
+  /** Bar widths relative to the column maximum, 0-100. */
+  damagePct: number;
+  healingPct: number;
   /** WCL rank percentile (kills only); null when no kill is in scope. */
   parse: number | null;
+}
+
+interface SortState {
+  key: string;
+  dir: 1 | -1;
+}
+
+/** Generic column sort; strings compare alphabetically, null sorts last. */
+function sortRows<T>(rows: T[], sort: SortState): T[] {
+  return [...rows].sort((a, b) => {
+    const av = (a as Record<string, unknown>)[sort.key];
+    const bv = (b as Record<string, unknown>)[sort.key];
+    if (typeof av === 'string' && typeof bv === 'string') {
+      return av.localeCompare(bv) * sort.dir;
+    }
+    return (((av as number | null) ?? -1) - ((bv as number | null) ?? -1)) * sort.dir;
+  });
 }
 
 @Component({
@@ -106,6 +126,25 @@ export class PullAnalysis {
   protected readonly scope = signal<AnalysisScope>('pull');
   protected readonly expanded = signal<ReadonlySet<string>>(new Set());
   protected readonly deathOptions = [1, 2, 3, 4, 5, 8, 10];
+
+  // Per-table sort states.
+  protected readonly perfSort = signal<SortState>({ key: 'damage', dir: -1 });
+  protected readonly consumSort = signal<SortState>({ key: 'name', dir: 1 });
+  protected readonly boardSort = signal<SortState>({ key: 'deaths', dir: -1 });
+  protected readonly mechSort = signal<SortState>({ key: 'name', dir: 1 });
+
+  protected sortBy(state: typeof this.perfSort, key: string): void {
+    const current = state();
+    state.set(
+      current.key === key
+        ? { key, dir: (current.dir * -1) as 1 | -1 }
+        : { key, dir: key === 'name' ? 1 : -1 },
+    );
+  }
+
+  protected arrow(state: SortState, key: string): string {
+    return state.key === key ? (state.dir === 1 ? ' ▲' : ' ▼') : '';
+  }
 
   constructor() {
     // Lazily pull damage (and, for the all-pulls tab, cast/death) events.
@@ -310,22 +349,48 @@ export class PullAnalysis {
       return [];
     }
 
-    return this.store
-      .players()
-      .map((player) => {
-        const t = totals.get(player.id) ?? { damage: 0, healing: 0 };
-        const p = parseSums.get(player.name);
-        return {
-          name: player.name,
-          color: classColor(player.className),
-          damage: t.damage,
-          dps: t.damage / totalSeconds,
-          healing: t.healing,
-          hps: t.healing / totalSeconds,
-          parse: p ? Math.round(p.sum / p.count) : null,
-        };
-      })
-      .sort((a, b) => b.damage - a.damage);
+    const rows = this.store.players().map((player) => {
+      const t = totals.get(player.id) ?? { damage: 0, healing: 0 };
+      const p = parseSums.get(player.name);
+      return {
+        name: player.name,
+        color: classColor(player.className),
+        damage: t.damage,
+        dps: t.damage / totalSeconds,
+        healing: t.healing,
+        hps: t.healing / totalSeconds,
+        damagePct: 0,
+        healingPct: 0,
+        parse: p ? Math.round(p.sum / p.count) : null,
+      };
+    });
+    const maxDamage = Math.max(1, ...rows.map((r) => r.damage));
+    const maxHealing = Math.max(1, ...rows.map((r) => r.healing));
+    for (const row of rows) {
+      row.damagePct = Math.round((row.damage / maxDamage) * 100);
+      row.healingPct = Math.round((row.healing / maxHealing) * 100);
+    }
+    return rows;
+  });
+
+  protected readonly sortedPerformance = computed(() =>
+    sortRows(this.performance(), this.perfSort()),
+  );
+
+  protected readonly sortedConsumables = computed(() =>
+    sortRows(this.consumables(), this.consumSort()),
+  );
+
+  protected readonly sortedLeaderboard = computed(() =>
+    sortRows(this.deathLeaderboard(), this.boardSort()),
+  );
+
+  protected readonly sortedMechanicGroups = computed(() => {
+    const sort = this.mechSort();
+    return this.mechanicGroups().map((group) => ({
+      ...group,
+      mechanics: sortRows(group.mechanics, sort),
+    }));
   });
 
   protected readonly hasParses = computed(() => this.performance().some((r) => r.parse !== null));
@@ -490,12 +555,12 @@ export class PullAnalysis {
 
   protected fmt(value: number): string {
     if (value >= 1_000_000) {
-      return `${(value / 1_000_000).toFixed(1)}m`;
+      return `${(value / 1_000_000).toFixed(2)}m`;
     }
     if (value >= 1_000) {
-      return `${Math.round(value / 1_000)}k`;
+      return `${(value / 1_000).toFixed(2)}k`;
     }
-    return `${value}`;
+    return `${Math.round(value)}`;
   }
 
   protected onIconError(event: Event): void {

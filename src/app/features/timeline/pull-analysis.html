@@ -40,26 +40,52 @@
     <table>
       <thead>
         <tr>
-          <th>Player</th>
-          <th class="num">DPS</th>
-          <th class="num">Damage</th>
-          <th class="num">HPS</th>
-          <th class="num">Healing</th>
+          <th class="sortable" (click)="sortBy(perfSort, 'name')">
+            Player{{ arrow(perfSort(), 'name') }}
+          </th>
+          <th class="num sortable" (click)="sortBy(perfSort, 'dps')">
+            DPS{{ arrow(perfSort(), 'dps') }}
+          </th>
+          <th class="num sortable bar-col" (click)="sortBy(perfSort, 'damage')">
+            Damage{{ arrow(perfSort(), 'damage') }}
+          </th>
+          <th class="num sortable" (click)="sortBy(perfSort, 'hps')">
+            HPS{{ arrow(perfSort(), 'hps') }}
+          </th>
+          <th class="num sortable bar-col" (click)="sortBy(perfSort, 'healing')">
+            Healing{{ arrow(perfSort(), 'healing') }}
+          </th>
           @if (hasParses()) {
-            <th class="num">Parse</th>
+            <th class="num sortable" (click)="sortBy(perfSort, 'parse')">
+              Parse{{ arrow(perfSort(), 'parse') }}
+            </th>
           }
         </tr>
       </thead>
       <tbody>
-        @for (row of performance(); track row.name) {
+        @for (row of sortedPerformance(); track row.name) {
           <tr>
             <td>
               <span class="name" [style.color]="row.color">{{ row.name }}</span>
             </td>
             <td class="num strong">{{ fmt(row.dps) }}</td>
-            <td class="num">{{ fmt(row.damage) }}</td>
+            <td class="num bar-cell">
+              <span
+                class="cell-bar"
+                [style.width.%]="row.damagePct"
+                [style.background]="row.color"
+              ></span>
+              <span class="cell-value">{{ fmt(row.damage) }}</span>
+            </td>
             <td class="num">{{ fmt(row.hps) }}</td>
-            <td class="num">{{ fmt(row.healing) }}</td>
+            <td class="num bar-cell">
+              <span
+                class="cell-bar"
+                [style.width.%]="row.healingPct"
+                [style.background]="row.color"
+              ></span>
+              <span class="cell-value">{{ fmt(row.healing) }}</span>
+            </td>
             @if (hasParses()) {
               <td class="num">
                 @if (row.parse !== null) {
@@ -75,7 +101,7 @@
     </table>
   }
 
-  @for (group of mechanicGroups(); track group.phase) {
+  @for (group of sortedMechanicGroups(); track group.phase) {
     @if (group.label) {
       <h4 class="phase-header">{{ group.label }}</h4>
     } @else {
@@ -85,11 +111,21 @@
       <thead>
         <tr>
           <th></th>
-          <th>Mechanic</th>
-          <th class="num">Hits</th>
-          <th class="num">Players hit</th>
-          <th class="num">Total dmg</th>
-          <th class="num">Avg hit</th>
+          <th class="sortable" (click)="sortBy(mechSort, 'name')">
+            Mechanic{{ arrow(mechSort(), 'name') }}
+          </th>
+          <th class="num sortable" (click)="sortBy(mechSort, 'hits')">
+            Hits{{ arrow(mechSort(), 'hits') }}
+          </th>
+          <th class="num sortable" (click)="sortBy(mechSort, 'playersHit')">
+            Players hit{{ arrow(mechSort(), 'playersHit') }}
+          </th>
+          <th class="num sortable" (click)="sortBy(mechSort, 'totalDamage')">
+            Total dmg{{ arrow(mechSort(), 'totalDamage') }}
+          </th>
+          <th class="num sortable" (click)="sortBy(mechSort, 'avgHit')">
+            Avg hit{{ arrow(mechSort(), 'avgHit') }}
+          </th>
         </tr>
       </thead>
       <tbody>
@@ -139,13 +175,19 @@
     <table>
       <thead>
         <tr>
-          <th>Player</th>
-          <th class="num">Combat pots</th>
-          <th class="num">Health pots &amp; stones</th>
+          <th class="sortable" (click)="sortBy(consumSort, 'name')">
+            Player{{ arrow(consumSort(), 'name') }}
+          </th>
+          <th class="num sortable" (click)="sortBy(consumSort, 'combatPots')">
+            Combat pots{{ arrow(consumSort(), 'combatPots') }}
+          </th>
+          <th class="num sortable" (click)="sortBy(consumSort, 'healthPots')">
+            Health pots &amp; stones{{ arrow(consumSort(), 'healthPots') }}
+          </th>
         </tr>
       </thead>
       <tbody>
-        @for (row of consumables(); track row.name) {
+        @for (row of sortedConsumables(); track row.name) {
           <tr>
             <td>
               <span class="name" [style.color]="row.color">{{ row.name }}</span>
@@ -205,13 +247,19 @@
     <table>
       <thead>
         <tr>
-          <th>Player</th>
-          <th class="num">Deaths</th>
-          <th class="num">…without pressing anything</th>
+          <th class="sortable" (click)="sortBy(boardSort, 'name')">
+            Player{{ arrow(boardSort(), 'name') }}
+          </th>
+          <th class="num sortable" (click)="sortBy(boardSort, 'deaths')">
+            Deaths{{ arrow(boardSort(), 'deaths') }}
+          </th>
+          <th class="num sortable" (click)="sortBy(boardSort, 'unmitigated')">
+            …without pressing anything{{ arrow(boardSort(), 'unmitigated') }}
+          </th>
         </tr>
       </thead>
       <tbody>
-        @for (row of deathLeaderboard(); track row.name) {
+        @for (row of sortedLeaderboard(); track row.name) {
           <tr>
             <td>
               <span class="name" [style.color]="row.color">{{ row.name }}</span>
