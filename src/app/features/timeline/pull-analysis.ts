@@ -22,8 +22,6 @@ import { ReportFight, fightDuration, formatOffset } from '../../core/models/wcl'
 import { ReportStore } from '../../core/state/report-store';
 import { WowheadLink } from '../../core/wowhead/wowhead-tooltip';
 
-type AnalysisScope = 'pull' | 'all';
-
 interface PerformanceRow {
   name: string;
   color: string;
@@ -52,7 +50,8 @@ interface PerformanceRow {
 export class PullAnalysis {
   protected readonly store = inject(ReportStore);
   protected readonly format = formatOffset;
-  protected readonly scope = signal<AnalysisScope>('pull');
+  /** Shared with the URL so an analysis view can be linked. */
+  protected readonly scope = this.store.analysisScope;
   protected readonly expanded = signal<ReadonlySet<string>>(new Set());
   protected readonly deathOptions = [1, 2, 3, 4, 5, 8, 10];
 

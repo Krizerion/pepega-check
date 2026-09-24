@@ -13,6 +13,9 @@ import { ReportDataStore } from './report-data.store';
 /** "pull" = one pull, all raiders; "player" = one raider, all pulls. */
 export type ViewMode = 'pull' | 'player';
 
+/** Analysis drawer scope. */
+export type AnalysisScope = 'pull' | 'all';
+
 const REPORT_URL_PATTERN = /reports\/((?:a:)?[A-Za-z0-9]{10,})/;
 
 export interface PlayerAbility {
@@ -98,6 +101,8 @@ export class ReportStore {
   /** Pull view: grey out everything after the Nth death (null = off). */
   readonly ignoreAfterDeaths = signal<number | null>(null);
   readonly showAnalysis = signal(false);
+  /** Analysis drawer scope: this pull, or every included pull. */
+  readonly analysisScope = signal<AnalysisScope>('pull');
   /** null = all boss abilities visible. */
   readonly selectedBossAbilityIds = signal<ReadonlySet<number> | null>(null);
   readonly pxPerSecond = signal(3);

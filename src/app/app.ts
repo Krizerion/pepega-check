@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 
 import { ReportStore } from './core/state/report-store';
+import { UrlStateService } from './core/state/url-state.service';
 import { EncounterTabs } from './features/report/encounter-tabs';
 import { ReportForm } from './features/report/report-form';
 import { SettingsDialog } from './features/settings/settings-dialog';
@@ -19,4 +20,9 @@ import { Timeline } from './features/timeline/timeline';
 export class App {
   protected readonly store = inject(ReportStore);
   protected readonly settingsOpen = signal(false);
+
+  constructor() {
+    // Restore whatever the URL points at, then keep it in sync.
+    inject(UrlStateService).start();
+  }
 }
