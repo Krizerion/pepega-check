@@ -1,0 +1,1149 @@
+{
+  "$schema": "./ability-catalog.schema.md",
+  "categories": [
+    {
+      "id": "defensive",
+      "label": "Defensives",
+      "color": "#f5a524"
+    },
+    {
+      "id": "immunity",
+      "label": "Immunities",
+      "color": "#ffd60a"
+    },
+    {
+      "id": "raid-cd",
+      "label": "Raid CDs",
+      "color": "#46a758"
+    },
+    {
+      "id": "offensive",
+      "label": "Offensive CDs",
+      "color": "#e5484d"
+    },
+    {
+      "id": "movement",
+      "label": "Movement",
+      "color": "#3fc7eb"
+    },
+    {
+      "id": "utility",
+      "label": "Utility",
+      "color": "#8788ee"
+    },
+    {
+      "id": "health-pot",
+      "label": "Health Pots & Stones",
+      "color": "#f48cba"
+    },
+    {
+      "id": "combat-pot",
+      "label": "Combat Pots",
+      "color": "#c084fc"
+    }
+  ],
+  "abilities": {
+    "defensive": [
+      {
+        "id": 871,
+        "name": "Shield Wall"
+      },
+      {
+        "id": 12975,
+        "name": "Last Stand"
+      },
+      {
+        "id": 118038,
+        "name": "Die by the Sword"
+      },
+      {
+        "id": 184364,
+        "name": "Enraged Regeneration"
+      },
+      {
+        "id": 23920,
+        "name": "Spell Reflection"
+      },
+      {
+        "id": 31850,
+        "name": "Ardent Defender"
+      },
+      {
+        "id": 86659,
+        "name": "Guardian of Ancient Kings"
+      },
+      {
+        "id": 184662,
+        "name": "Shield of Vengeance"
+      },
+      {
+        "id": 498,
+        "name": "Divine Protection"
+      },
+      {
+        "id": 403876,
+        "name": "Divine Protection (retail rework)"
+      },
+      {
+        "id": 389539,
+        "name": "Sentinel"
+      },
+      {
+        "id": 264735,
+        "name": "Survival of the Fittest"
+      },
+      {
+        "id": 109304,
+        "name": "Exhilaration"
+      },
+      {
+        "id": 5277,
+        "name": "Evasion"
+      },
+      {
+        "id": 1966,
+        "name": "Feint"
+      },
+      {
+        "id": 185311,
+        "name": "Crimson Vial"
+      },
+      {
+        "id": 47585,
+        "name": "Dispersion"
+      },
+      {
+        "id": 19236,
+        "name": "Desperate Prayer"
+      },
+      {
+        "id": 47536,
+        "name": "Rapture"
+      },
+      {
+        "id": 48792,
+        "name": "Icebound Fortitude"
+      },
+      {
+        "id": 48707,
+        "name": "Anti-Magic Shell"
+      },
+      {
+        "id": 55233,
+        "name": "Vampiric Blood"
+      },
+      {
+        "id": 49028,
+        "name": "Dancing Rune Weapon"
+      },
+      {
+        "id": 49039,
+        "name": "Lichborne"
+      },
+      {
+        "id": 48743,
+        "name": "Death Pact"
+      },
+      {
+        "id": 108271,
+        "name": "Astral Shift"
+      },
+      {
+        "id": 108270,
+        "name": "Stone Bulwark Totem"
+      },
+      {
+        "id": 342245,
+        "name": "Alter Time"
+      },
+      {
+        "id": 110959,
+        "name": "Greater Invisibility"
+      },
+      {
+        "id": 55342,
+        "name": "Mirror Image"
+      },
+      {
+        "id": 235450,
+        "name": "Prismatic Barrier"
+      },
+      {
+        "id": 235313,
+        "name": "Blazing Barrier"
+      },
+      {
+        "id": 11426,
+        "name": "Ice Barrier"
+      },
+      {
+        "id": 104773,
+        "name": "Unending Resolve"
+      },
+      {
+        "id": 108416,
+        "name": "Dark Pact"
+      },
+      {
+        "id": 115203,
+        "name": "Fortifying Brew"
+      },
+      {
+        "id": 115176,
+        "name": "Zen Meditation"
+      },
+      {
+        "id": 122278,
+        "name": "Dampen Harm"
+      },
+      {
+        "id": 122783,
+        "name": "Diffuse Magic"
+      },
+      {
+        "id": 122470,
+        "name": "Touch of Karma"
+      },
+      {
+        "id": 322507,
+        "name": "Celestial Brew"
+      },
+      {
+        "id": 22812,
+        "name": "Barkskin"
+      },
+      {
+        "id": 61336,
+        "name": "Survival Instincts"
+      },
+      {
+        "id": 108238,
+        "name": "Renewal"
+      },
+      {
+        "id": 198589,
+        "name": "Blur"
+      },
+      {
+        "id": 187827,
+        "name": "Metamorphosis (Vengeance)"
+      },
+      {
+        "id": 204021,
+        "name": "Fiery Brand"
+      },
+      {
+        "id": 363916,
+        "name": "Obsidian Scales"
+      },
+      {
+        "id": 374348,
+        "name": "Renewing Blaze"
+      },
+      {
+        "id": 374227,
+        "name": "Zephyr"
+      }
+    ],
+    "immunity": [
+      {
+        "id": 642,
+        "name": "Divine Shield"
+      },
+      {
+        "id": 186265,
+        "name": "Aspect of the Turtle"
+      },
+      {
+        "id": 31224,
+        "name": "Cloak of Shadows"
+      },
+      {
+        "id": 45438,
+        "name": "Ice Block"
+      },
+      {
+        "id": 196555,
+        "name": "Netherwalk"
+      },
+      {
+        "id": 1022,
+        "name": "Blessing of Protection"
+      },
+      {
+        "id": 204018,
+        "name": "Blessing of Spellwarding"
+      }
+    ],
+    "raid-cd": [
+      {
+        "id": 31821,
+        "name": "Aura Mastery"
+      },
+      {
+        "id": 633,
+        "name": "Lay on Hands"
+      },
+      {
+        "id": 62618,
+        "name": "Power Word: Barrier"
+      },
+      {
+        "id": 33206,
+        "name": "Pain Suppression"
+      },
+      {
+        "id": 47788,
+        "name": "Guardian Spirit"
+      },
+      {
+        "id": 64843,
+        "name": "Divine Hymn"
+      },
+      {
+        "id": 15286,
+        "name": "Vampiric Embrace"
+      },
+      {
+        "id": 98008,
+        "name": "Spirit Link Totem"
+      },
+      {
+        "id": 108280,
+        "name": "Healing Tide Totem"
+      },
+      {
+        "id": 108281,
+        "name": "Ancestral Guidance"
+      },
+      {
+        "id": 207399,
+        "name": "Ancestral Protection Totem"
+      },
+      {
+        "id": 114052,
+        "name": "Ascendance (Restoration)"
+      },
+      {
+        "id": 116849,
+        "name": "Life Cocoon"
+      },
+      {
+        "id": 115310,
+        "name": "Revival"
+      },
+      {
+        "id": 388615,
+        "name": "Restoral"
+      },
+      {
+        "id": 322118,
+        "name": "Invoke Yu'lon"
+      },
+      {
+        "id": 325197,
+        "name": "Invoke Chi-Ji"
+      },
+      {
+        "id": 740,
+        "name": "Tranquility"
+      },
+      {
+        "id": 102342,
+        "name": "Ironbark"
+      },
+      {
+        "id": 197721,
+        "name": "Flourish"
+      },
+      {
+        "id": 363534,
+        "name": "Rewind"
+      },
+      {
+        "id": 359816,
+        "name": "Dream Flight"
+      },
+      {
+        "id": 370960,
+        "name": "Emerald Communion"
+      },
+      {
+        "id": 357170,
+        "name": "Time Dilation"
+      },
+      {
+        "id": 51052,
+        "name": "Anti-Magic Zone"
+      },
+      {
+        "id": 196718,
+        "name": "Darkness"
+      },
+      {
+        "id": 97462,
+        "name": "Rallying Cry"
+      },
+      {
+        "id": 414660,
+        "name": "Mass Barrier"
+      }
+    ],
+    "offensive": [
+      {
+        "id": 107574,
+        "name": "Avatar"
+      },
+      {
+        "id": 1719,
+        "name": "Recklessness"
+      },
+      {
+        "id": 227847,
+        "name": "Bladestorm"
+      },
+      {
+        "id": 228920,
+        "name": "Ravager"
+      },
+      {
+        "id": 31884,
+        "name": "Avenging Wrath"
+      },
+      {
+        "id": 231895,
+        "name": "Crusade"
+      },
+      {
+        "id": 288613,
+        "name": "Trueshot"
+      },
+      {
+        "id": 360952,
+        "name": "Coordinated Assault"
+      },
+      {
+        "id": 19574,
+        "name": "Bestial Wrath"
+      },
+      {
+        "id": 359844,
+        "name": "Call of the Wild"
+      },
+      {
+        "id": 13750,
+        "name": "Adrenaline Rush"
+      },
+      {
+        "id": 121471,
+        "name": "Shadow Blades"
+      },
+      {
+        "id": 360194,
+        "name": "Deathmark"
+      },
+      {
+        "id": 194249,
+        "name": "Voidform"
+      },
+      {
+        "id": 391109,
+        "name": "Dark Ascension"
+      },
+      {
+        "id": 200183,
+        "name": "Apotheosis"
+      },
+      {
+        "id": 246287,
+        "name": "Evangelism"
+      },
+      {
+        "id": 51271,
+        "name": "Pillar of Frost"
+      },
+      {
+        "id": 152279,
+        "name": "Breath of Sindragosa"
+      },
+      {
+        "id": 207289,
+        "name": "Unholy Assault"
+      },
+      {
+        "id": 275699,
+        "name": "Apocalypse"
+      },
+      {
+        "id": 42650,
+        "name": "Army of the Dead"
+      },
+      {
+        "id": 383269,
+        "name": "Abomination Limb"
+      },
+      {
+        "id": 114050,
+        "name": "Ascendance (Elemental)"
+      },
+      {
+        "id": 114051,
+        "name": "Ascendance (Enhancement)"
+      },
+      {
+        "id": 198067,
+        "name": "Fire Elemental"
+      },
+      {
+        "id": 192249,
+        "name": "Storm Elemental"
+      },
+      {
+        "id": 51533,
+        "name": "Feral Spirit"
+      },
+      {
+        "id": 384352,
+        "name": "Doom Winds"
+      },
+      {
+        "id": 191634,
+        "name": "Stormkeeper"
+      },
+      {
+        "id": 12472,
+        "name": "Icy Veins"
+      },
+      {
+        "id": 190319,
+        "name": "Combustion"
+      },
+      {
+        "id": 365350,
+        "name": "Arcane Surge"
+      },
+      {
+        "id": 1122,
+        "name": "Summon Infernal"
+      },
+      {
+        "id": 205180,
+        "name": "Summon Darkglare"
+      },
+      {
+        "id": 265187,
+        "name": "Summon Demonic Tyrant"
+      },
+      {
+        "id": 137639,
+        "name": "Storm, Earth, and Fire"
+      },
+      {
+        "id": 123904,
+        "name": "Invoke Xuen"
+      },
+      {
+        "id": 391528,
+        "name": "Convoke the Spirits"
+      },
+      {
+        "id": 194223,
+        "name": "Celestial Alignment"
+      },
+      {
+        "id": 102560,
+        "name": "Incarnation: Chosen of Elune"
+      },
+      {
+        "id": 102543,
+        "name": "Incarnation: Avatar of Ashamane"
+      },
+      {
+        "id": 106951,
+        "name": "Berserk"
+      },
+      {
+        "id": 191427,
+        "name": "Metamorphosis (Havoc)"
+      },
+      {
+        "id": 370965,
+        "name": "The Hunt"
+      },
+      {
+        "id": 375087,
+        "name": "Dragonrage"
+      },
+      {
+        "id": 403631,
+        "name": "Breath of Eons"
+      },
+      {
+        "id": 395152,
+        "name": "Ebon Might"
+      }
+    ],
+    "movement": [
+      {
+        "id": 6544,
+        "name": "Heroic Leap"
+      },
+      {
+        "id": 190784,
+        "name": "Divine Steed"
+      },
+      {
+        "id": 186257,
+        "name": "Aspect of the Cheetah"
+      },
+      {
+        "id": 2983,
+        "name": "Sprint"
+      },
+      {
+        "id": 36554,
+        "name": "Shadowstep"
+      },
+      {
+        "id": 73325,
+        "name": "Leap of Faith"
+      },
+      {
+        "id": 121536,
+        "name": "Angelic Feather"
+      },
+      {
+        "id": 48265,
+        "name": "Death's Advance"
+      },
+      {
+        "id": 212552,
+        "name": "Wraith Walk"
+      },
+      {
+        "id": 58875,
+        "name": "Spirit Walk"
+      },
+      {
+        "id": 79206,
+        "name": "Spiritwalker's Grace"
+      },
+      {
+        "id": 1953,
+        "name": "Blink"
+      },
+      {
+        "id": 212653,
+        "name": "Shimmer"
+      },
+      {
+        "id": 48020,
+        "name": "Demonic Circle: Teleport"
+      },
+      {
+        "id": 109132,
+        "name": "Roll"
+      },
+      {
+        "id": 115008,
+        "name": "Chi Torpedo"
+      },
+      {
+        "id": 116841,
+        "name": "Tiger's Lust"
+      },
+      {
+        "id": 252216,
+        "name": "Tiger Dash"
+      },
+      {
+        "id": 1850,
+        "name": "Dash"
+      },
+      {
+        "id": 102401,
+        "name": "Wild Charge"
+      },
+      {
+        "id": 106898,
+        "name": "Stampeding Roar"
+      },
+      {
+        "id": 77764,
+        "name": "Stampeding Roar (Bear)"
+      },
+      {
+        "id": 195072,
+        "name": "Fel Rush"
+      },
+      {
+        "id": 189110,
+        "name": "Infernal Strike"
+      },
+      {
+        "id": 358267,
+        "name": "Hover"
+      },
+      {
+        "id": 370665,
+        "name": "Rescue"
+      }
+    ],
+    "utility": [
+      {
+        "id": 2825,
+        "name": "Bloodlust"
+      },
+      {
+        "id": 32182,
+        "name": "Heroism"
+      },
+      {
+        "id": 80353,
+        "name": "Time Warp"
+      },
+      {
+        "id": 390386,
+        "name": "Fury of the Aspects"
+      },
+      {
+        "id": 10060,
+        "name": "Power Infusion"
+      },
+      {
+        "id": 29166,
+        "name": "Innervate"
+      },
+      {
+        "id": 20484,
+        "name": "Rebirth"
+      },
+      {
+        "id": 61999,
+        "name": "Raise Ally"
+      },
+      {
+        "id": 20707,
+        "name": "Soulstone"
+      },
+      {
+        "id": 95750,
+        "name": "Soulstone Resurrection"
+      },
+      {
+        "id": 1856,
+        "name": "Vanish"
+      },
+      {
+        "id": 370553,
+        "name": "Tip the Scales"
+      },
+      {
+        "id": 114018,
+        "name": "Shroud of Concealment"
+      },
+      {
+        "id": 64901,
+        "name": "Symbol of Hope"
+      },
+      {
+        "id": 108199,
+        "name": "Gorefiend's Grasp"
+      },
+      {
+        "id": 192077,
+        "name": "Wind Rush Totem"
+      }
+    ],
+    "health-pot": [
+      {
+        "id": 6262,
+        "name": "Healthstone"
+      },
+      {
+        "id": 452930,
+        "name": "Demonic Healthstone"
+      },
+      {
+        "id": 431416,
+        "name": "Algari Healing Potion (TWW)"
+      },
+      {
+        "id": 1234768,
+        "name": "Silvermoon Health Potion (Midnight)"
+      },
+      {
+        "id": 1295247,
+        "name": "Concentrated Silvermoon Health Potion (Midnight)"
+      },
+      {
+        "id": 1263074,
+        "name": "Amani Extract (Midnight, HoT potion)"
+      }
+    ],
+    "combat-pot": [
+      {
+        "id": 431932,
+        "name": "Tempered Potion"
+      },
+      {
+        "id": 431914,
+        "name": "Potion of Unwavering Focus"
+      },
+      {
+        "id": 431925,
+        "name": "Frontline Potion"
+      },
+      {
+        "id": 1236616,
+        "name": "Light's Potential"
+      },
+      {
+        "id": 1236994,
+        "name": "Potion of Recklessness"
+      },
+      {
+        "id": 1236998,
+        "name": "Draught of Rampant Abandon"
+      },
+      {
+        "id": 1238443,
+        "name": "Potion of Zealotry"
+      },
+      {
+        "id": 1295132,
+        "name": "Liquid Luster"
+      },
+      {
+        "id": 1295015,
+        "name": "Alluring Nostrum"
+      },
+      {
+        "id": 1236648,
+        "name": "Lightfused Mana Potion"
+      },
+      {
+        "id": 1239479,
+        "name": "Potion of Devoured Dreams"
+      }
+    ]
+  },
+  "cooldowns": [
+    {
+      "id": 871,
+      "seconds": 240,
+      "name": "Shield Wall"
+    },
+    {
+      "id": 12975,
+      "seconds": 180,
+      "name": "Last Stand"
+    },
+    {
+      "id": 118038,
+      "seconds": 180,
+      "name": "Die by the Sword"
+    },
+    {
+      "id": 23920,
+      "seconds": 25,
+      "name": "Spell Reflection"
+    },
+    {
+      "id": 97462,
+      "seconds": 180,
+      "name": "Rallying Cry"
+    },
+    {
+      "id": 642,
+      "seconds": 300,
+      "name": "Divine Shield"
+    },
+    {
+      "id": 633,
+      "seconds": 600,
+      "name": "Lay on Hands"
+    },
+    {
+      "id": 1022,
+      "seconds": 300,
+      "name": "Blessing of Protection"
+    },
+    {
+      "id": 31850,
+      "seconds": 120,
+      "name": "Ardent Defender"
+    },
+    {
+      "id": 86659,
+      "seconds": 300,
+      "name": "Guardian of Ancient Kings"
+    },
+    {
+      "id": 184662,
+      "seconds": 120,
+      "name": "Shield of Vengeance"
+    },
+    {
+      "id": 31821,
+      "seconds": 180,
+      "name": "Aura Mastery"
+    },
+    {
+      "id": 186265,
+      "seconds": 180,
+      "name": "Aspect of the Turtle"
+    },
+    {
+      "id": 109304,
+      "seconds": 120,
+      "name": "Exhilaration"
+    },
+    {
+      "id": 264735,
+      "seconds": 180,
+      "name": "Survival of the Fittest"
+    },
+    {
+      "id": 31224,
+      "seconds": 120,
+      "name": "Cloak of Shadows"
+    },
+    {
+      "id": 5277,
+      "seconds": 120,
+      "name": "Evasion"
+    },
+    {
+      "id": 185311,
+      "seconds": 30,
+      "name": "Crimson Vial"
+    },
+    {
+      "id": 1856,
+      "seconds": 120,
+      "name": "Vanish"
+    },
+    {
+      "id": 47585,
+      "seconds": 120,
+      "name": "Dispersion"
+    },
+    {
+      "id": 19236,
+      "seconds": 90,
+      "name": "Desperate Prayer"
+    },
+    {
+      "id": 62618,
+      "seconds": 180,
+      "name": "Power Word: Barrier"
+    },
+    {
+      "id": 33206,
+      "seconds": 180,
+      "name": "Pain Suppression"
+    },
+    {
+      "id": 47788,
+      "seconds": 240,
+      "name": "Guardian Spirit"
+    },
+    {
+      "id": 64843,
+      "seconds": 180,
+      "name": "Divine Hymn"
+    },
+    {
+      "id": 48792,
+      "seconds": 180,
+      "name": "Icebound Fortitude"
+    },
+    {
+      "id": 48707,
+      "seconds": 60,
+      "name": "Anti-Magic Shell"
+    },
+    {
+      "id": 51052,
+      "seconds": 120,
+      "name": "Anti-Magic Zone"
+    },
+    {
+      "id": 55233,
+      "seconds": 90,
+      "name": "Vampiric Blood"
+    },
+    {
+      "id": 49028,
+      "seconds": 120,
+      "name": "Dancing Rune Weapon"
+    },
+    {
+      "id": 48743,
+      "seconds": 120,
+      "name": "Death Pact"
+    },
+    {
+      "id": 108271,
+      "seconds": 120,
+      "name": "Astral Shift"
+    },
+    {
+      "id": 98008,
+      "seconds": 180,
+      "name": "Spirit Link Totem"
+    },
+    {
+      "id": 108280,
+      "seconds": 180,
+      "name": "Healing Tide Totem"
+    },
+    {
+      "id": 108281,
+      "seconds": 120,
+      "name": "Ancestral Guidance"
+    },
+    {
+      "id": 207399,
+      "seconds": 300,
+      "name": "Ancestral Protection Totem"
+    },
+    {
+      "id": 45438,
+      "seconds": 240,
+      "name": "Ice Block"
+    },
+    {
+      "id": 110959,
+      "seconds": 120,
+      "name": "Greater Invisibility"
+    },
+    {
+      "id": 342245,
+      "seconds": 60,
+      "name": "Alter Time"
+    },
+    {
+      "id": 414660,
+      "seconds": 90,
+      "name": "Mass Barrier"
+    },
+    {
+      "id": 104773,
+      "seconds": 180,
+      "name": "Unending Resolve"
+    },
+    {
+      "id": 108416,
+      "seconds": 60,
+      "name": "Dark Pact"
+    },
+    {
+      "id": 115203,
+      "seconds": 420,
+      "name": "Fortifying Brew"
+    },
+    {
+      "id": 122278,
+      "seconds": 120,
+      "name": "Dampen Harm"
+    },
+    {
+      "id": 122783,
+      "seconds": 120,
+      "name": "Diffuse Magic"
+    },
+    {
+      "id": 116849,
+      "seconds": 120,
+      "name": "Life Cocoon"
+    },
+    {
+      "id": 115310,
+      "seconds": 180,
+      "name": "Revival"
+    },
+    {
+      "id": 22812,
+      "seconds": 60,
+      "name": "Barkskin"
+    },
+    {
+      "id": 61336,
+      "seconds": 180,
+      "name": "Survival Instincts"
+    },
+    {
+      "id": 108238,
+      "seconds": 90,
+      "name": "Renewal"
+    },
+    {
+      "id": 740,
+      "seconds": 180,
+      "name": "Tranquility"
+    },
+    {
+      "id": 102342,
+      "seconds": 90,
+      "name": "Ironbark"
+    },
+    {
+      "id": 198589,
+      "seconds": 60,
+      "name": "Blur"
+    },
+    {
+      "id": 196718,
+      "seconds": 300,
+      "name": "Darkness"
+    },
+    {
+      "id": 363916,
+      "seconds": 90,
+      "name": "Obsidian Scales"
+    },
+    {
+      "id": 374348,
+      "seconds": 90,
+      "name": "Renewing Blaze"
+    },
+    {
+      "id": 363534,
+      "seconds": 240,
+      "name": "Rewind"
+    },
+    {
+      "id": 357170,
+      "seconds": 60,
+      "name": "Time Dilation"
+    }
+  ],
+  "namePatterns": [
+    {
+      "pattern": "healthstone",
+      "flags": "i",
+      "category": "health-pot"
+    },
+    {
+      "pattern": "(?:health|healing) potion",
+      "flags": "i",
+      "category": "health-pot"
+    },
+    {
+      "pattern": "\\bpotion\\b",
+      "flags": "i",
+      "category": "combat-pot"
+    },
+    {
+      "pattern": "bloodlust|heroism|time warp|fury of the aspects",
+      "flags": "i",
+      "category": "utility"
+    }
+  ],
+  "notConsumablePattern": {
+    "pattern": "^create ",
+    "flags": "i"
+  }
+}
