@@ -279,47 +279,52 @@ const PLAYER_SPELLS: DemoSpell[] = [
   { id: 431932, name: 'Tempered Potion', icon: 'inv_flask_red.jpg', cooldown: 300, classes: 'all' },
 ];
 
+/**
+ * Real Entombed Sentinels abilities (ids, names and icons taken from a live
+ * log) so Wowhead tooltips resolve in demo mode just as they do on a real
+ * report. The cast timings below are invented.
+ */
 const BOSS_SPELLS: (DemoSpell & { period: number; firstAt: number })[] = [
   {
-    id: 900001,
-    name: 'Necrotic Vapors',
-    icon: 'spell_shadow_deathanddecay.jpg',
+    id: 1284487,
+    name: 'Bloodvenom Injection',
+    icon: 'ability_warrior_bloodbath.jpg',
     cooldown: 0,
     classes: 'all',
     period: 60,
     firstAt: 8,
   },
   {
-    id: 900002,
-    name: 'Call of the Serpent',
-    icon: 'spell_nature_guardianward.jpg',
+    id: 1284458,
+    name: 'Empowering Slam',
+    icon: 'inv_mace_1h_pvppandarias3_c_01.jpg',
     cooldown: 0,
     classes: 'all',
     period: 90,
     firstAt: 25,
   },
   {
-    id: 900003,
-    name: 'Spectral Coils',
-    icon: 'spell_frost_chainsofice.jpg',
+    id: 1284434,
+    name: 'Toxic Droplets',
+    icon: 'inv_ability_poison_orb.jpg',
     cooldown: 0,
     classes: 'all',
     period: 45,
     firstAt: 40,
   },
   {
-    id: 900004,
-    name: 'Rage of the Shackled',
-    icon: 'spell_shadow_unholyfrenzy.jpg',
+    id: 1288232,
+    name: 'Unstable Miasma',
+    icon: 'ability_deathwing_bloodcorruption_death.jpg',
     cooldown: 0,
     classes: 'all',
     period: 120,
     firstAt: 105,
   },
   {
-    id: 900005,
-    name: 'Venomous Heart',
-    icon: 'ability_creature_poison_02.jpg',
+    id: 1284251,
+    name: 'Venom Coagulation',
+    icon: 'inv_ability_poison_nova.jpg',
     cooldown: 0,
     classes: 'all',
     period: 75,
@@ -411,8 +416,8 @@ export function buildDemoReport(): DemoData {
     const isKill = pull.bossPct === 0;
     fights.push({
       id,
-      name: "Ula'tek",
-      encounterID: 3131,
+      name: 'Entombed Sentinels',
+      encounterID: 3445,
       difficulty: 5,
       kill: isKill,
       startTime,
@@ -433,10 +438,10 @@ export function buildDemoReport(): DemoData {
     title: 'Demo — Mythic Prog Night',
     startTime: 0,
     endTime: clock,
-    zoneName: 'The Coiled Sanctum',
+    zoneName: 'The Venomous Abyss',
     fights,
     actors: [
-      { id: bossActorId, name: "Ula'tek", type: 'NPC', subType: 'Boss', petOwner: null },
+      { id: bossActorId, name: 'Entombed Sentinels', type: 'NPC', subType: 'Boss', petOwner: null },
       ...players.map((p) => ({
         id: p.id,
         name: p.name,
