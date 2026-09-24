@@ -1,55 +1,76 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 
-import { WclApiService } from '../api/wcl-api.service';
 import {
   AbilityCategory,
   CATEGORIES,
   CategoryMeta,
   classifyAbility,
 } from '../data/ability-catalog';
-import { DEMO_REPORT_CODE, buildDemoPerformance, buildDemoReport } from '../data/demo-report';
-import {
-  DamageEvent,
-  DispelEvent,
-  EncounterGroup,
-  FightEvents,
-  FightPerformance,
-  PlayerInfo,
-  PlayerRole,
-  Report,
-  ReportFight,
-} from '../models/wcl';
-
-export type LoadStatus = 'idle' | 'loading' | 'ready' | 'error';
+import { DEMO_REPORT_CODE } from '../data/demo-report';
+import { EncounterGroup, FightEvents, PlayerInfo, PlayerRole, ReportFight } from '../models/wcl';
+import { ReportDataStore } from './report-data.store';
 
 /** "pull" = one pull, all raiders; "player" = one raider, all pulls. */
 export type ViewMode = 'pull' | 'player';
 
 const REPORT_URL_PATTERN = /reports\/((?:a:)?[A-Za-z0-9]{10,})/;
 
+export interface PlayerAbility {
+  id: number;
+  name: string;
+  icon: string | null;
+  count: number;
+}
+
+export interface CategoryAbilities {
+  meta: CategoryMeta;
+  abilities: PlayerAbility[];
+}
+
+export interface BossAbility {
+  id: number;
+  name: string;
+  icon: string | null;
+  /** Total casts across the fights currently in view. */
+  count: number;
+}
+
+/**
+ * What the user is currently looking at: which encounter, pull and player are
+ * selected, and how the timeline is filtered. Fetched data lives in
+ * ReportDataStore, which this re-exposes so components have a single entry point.
+ */
 @Injectable({ providedIn: 'root' })
 export class ReportStore {
-  private readonly api = inject(WclApiService);
+  private readonly data = inject(ReportDataStore);
 
-  // --- report loading ---
-  readonly status = signal<LoadStatus>('idle');
-  readonly error = signal<string | null>(null);
-  readonly report = signal<Report | null>(null);
-  readonly players = signal<PlayerInfo[]>([]);
+  // --- data passthrough ---
+  readonly status = this.data.status;
+  readonly error = this.data.error;
+  readonly report = this.data.report;
+  readonly players = this.data.players;
+  readonly events = this.data.events;
+  readonly loadingFights = this.data.loadingFights;
+  readonly loadingDamage = this.data.loadingDamage;
+  readonly damageByFight = this.data.damageByFight;
+  readonly dispelsByFight = this.data.dispelsByFight;
+  readonly performanceByFight = this.data.performanceByFight;
 
-  private readonly eventsByFight = signal<ReadonlyMap<number, FightEvents>>(new Map());
-  readonly loadingFights = signal<ReadonlySet<number>>(new Set());
-  private readonly inflight = new Map<number, Promise<void>>();
-  readonly damageByFight = signal<ReadonlyMap<number, DamageEvent[]>>(new Map());
-  readonly dispelsByFight = signal<ReadonlyMap<number, DispelEvent[]>>(new Map());
-  readonly loadingDamage = signal<ReadonlySet<number>>(new Set());
-  private readonly inflightDamage = new Map<number, Promise<void>>();
-  readonly performanceByFight = signal<ReadonlyMap<number, FightPerformance>>(new Map());
-  private readonly inflightPerformance = new Map<number, Promise<void>>();
-  private demoEvents: Map<number, FightEvents> | null = null;
-  private demoDamage: Map<number, DamageEvent[]> | null = null;
-  private demoDispels: Map<number, DispelEvent[]> | null = null;
-  private playerDetailsCache = new Map<string, PlayerInfo[]>();
+  eventsFor(fightId: number): FightEvents | null {
+    return this.data.eventsFor(fightId);
+  }
+
+  ensureEvents(fightId: number): Promise<void> {
+    return this.data.ensureEvents(fightId);
+  }
+
+  ensureDamage(fightId: number): Promise<void> {
+    return this.data.ensureDamage(fightId);
+  }
+
+  ensurePerformance(fightId: number): Promise<void> {
+    return this.data.ensurePerformance(fightId);
+  }
 
   // --- selection ---
   readonly selectedEncounterKey = signal<string | null>(null);
@@ -80,6 +101,8 @@ export class ReportStore {
   /** null = all boss abilities visible. */
   readonly selectedBossAbilityIds = signal<ReadonlySet<number> | null>(null);
   readonly pxPerSecond = signal(3);
+  /** Individual abilities hidden via their filter-bar icon. */
+  readonly disabledAbilityIds = signal<ReadonlySet<number>>(new Set());
 
   // --- derived ---
   readonly encounters = computed<EncounterGroup[]>(() => {
@@ -120,6 +143,12 @@ export class ReportStore {
     return this.players().find((p) => p.id === id) ?? null;
   });
 
+  /** Pulls of the selected encounter minus the excluded ones. */
+  readonly includedPulls = computed<ReportFight[]>(() => {
+    const excluded = this.excludedPullIds();
+    return (this.selectedEncounter()?.pulls ?? []).filter((p) => !excluded.has(p.id));
+  });
+
   /** Fights whose events feed the current view (one pull, or all pulls in player mode). */
   readonly fightsInView = computed<ReportFight[]>(() => {
     const encounter = this.selectedEncounter();
@@ -127,8 +156,7 @@ export class ReportStore {
       return [];
     }
     if (this.viewMode() === 'player') {
-      const excluded = this.excludedPullIds();
-      return encounter.pulls.filter((p) => !excluded.has(p.id));
+      return this.includedPulls();
     }
     const pull = this.selectedPull();
     return pull ? [pull] : [];
@@ -140,7 +168,7 @@ export class ReportStore {
     if (!report) {
       return [];
     }
-    const events = this.eventsByFight();
+    const events = this.events();
     // In the player view only the selected raider's abilities are relevant.
     const onlyPlayerId = this.viewMode() === 'player' ? this.selectedPlayerId() : null;
     const counts = new Map<number, number>();
@@ -169,15 +197,133 @@ export class ReportStore {
     }));
   });
 
-  /** Individual abilities hidden via their filter-bar icon. */
-  readonly disabledAbilityIds = signal<ReadonlySet<number>>(new Set());
+  /** Boss/NPC abilities cast during the fights in view, most frequent first. */
+  readonly bossAbilities = computed<BossAbility[]>(() => {
+    const report = this.report();
+    if (!report) {
+      return [];
+    }
+    const events = this.events();
+    const counts = new Map<number, number>();
+    for (const fight of this.fightsInView()) {
+      for (const cast of events.get(fight.id)?.enemyCasts ?? []) {
+        if (cast.type !== 'cast' || cast.abilityGameID <= 1) {
+          continue;
+        }
+        counts.set(cast.abilityGameID, (counts.get(cast.abilityGameID) ?? 0) + 1);
+      }
+    }
+    return [...counts.entries()]
+      .map(([id, count]) => {
+        const ability = report.abilities.get(id);
+        return { id, name: ability?.name ?? `Ability #${id}`, icon: ability?.icon ?? null, count };
+      })
+      .filter((a) => a.name.toLowerCase() !== 'melee')
+      .sort((a, b) => b.count - a.count);
+  });
 
-  toggleAbilityDisabled(abilityId: number): void {
-    const next = new Set(this.disabledAbilityIds());
+  // --- actions ---
+
+  async loadReport(input: string): Promise<void> {
+    const code = parseReportCode(input);
+    if (!code) {
+      this.data.fail('That does not look like a Warcraft Logs report URL or code.');
+      return;
+    }
+
+    this.resetSelection();
+    if (!(await this.data.loadReport(code))) {
+      return;
+    }
+    const first = this.encounters().at(-1);
+    if (first) {
+      await this.selectEncounter(groupKey(first));
+    }
+  }
+
+  async selectEncounter(key: string): Promise<void> {
+    this.selectedEncounterKey.set(key);
+    this.selectedPlayerId.set(null);
+    this.selectedBossAbilityIds.set(null);
+    this.excludedPullIds.set(new Set());
+
+    const encounter = this.selectedEncounter();
+    if (!encounter) {
+      return;
+    }
+    await this.data.ensurePlayers(
+      key,
+      encounter.pulls.map((p) => p.id),
+    );
+    const defaultPull = encounter.pulls.find((p) => p.kill) ?? encounter.pulls.at(-1);
+    if (defaultPull) {
+      await this.selectPull(defaultPull.id);
+    }
+  }
+
+  async selectPull(fightId: number): Promise<void> {
+    this.selectedPullId.set(fightId);
+    this.selectedPlayerId.set(null);
+    await this.ensureEvents(fightId);
+  }
+
+  /** Switches to the player-across-pulls view and loads events for every pull. */
+  async selectPlayer(playerId: number): Promise<void> {
+    this.selectedPlayerId.set(playerId);
+    await Promise.all(this.includedPulls().map((pull) => this.ensureEvents(pull.id)));
+  }
+
+  showPullView(): void {
+    this.selectedPlayerId.set(null);
+  }
+
+  togglePullExcluded(fightId: number): void {
+    const next = new Set(this.excludedPullIds());
+    if (!next.delete(fightId)) {
+      next.add(fightId);
+    }
+    this.excludedPullIds.set(next);
+    // A pull re-included while in the player view needs its events loaded.
+    if (!next.has(fightId) && this.viewMode() === 'player') {
+      void this.ensureEvents(fightId);
+    }
+  }
+
+  toggleRole(role: PlayerRole): void {
+    this.enabledRoles.set(toggled(this.enabledRoles(), role));
+  }
+
+  toggleRoleCollapsed(role: PlayerRole): void {
+    this.collapsedRoles.set(toggled(this.collapsedRoles(), role));
+  }
+
+  /** Boss ability picker: select every ability (null = all) or none. */
+  selectAllBossAbilities(all: boolean): void {
+    this.selectedBossAbilityIds.set(all ? null : new Set());
+  }
+
+  /** One-press master switch: any category on → all off; all off → all on. */
+  toggleAllCategories(): void {
+    this.enabledCategories.set(
+      this.enabledCategories().size > 0 ? new Set() : new Set(CATEGORIES.map((c) => c.id)),
+    );
+  }
+
+  toggleCategory(category: AbilityCategory): void {
+    this.enabledCategories.set(toggled(this.enabledCategories(), category));
+  }
+
+  toggleBossAbility(abilityId: number, allIds: number[]): void {
+    const current = this.selectedBossAbilityIds();
+    const next = new Set(current ?? allIds);
     if (!next.delete(abilityId)) {
       next.add(abilityId);
     }
-    this.disabledAbilityIds.set(next);
+    this.selectedBossAbilityIds.set(next.size === allIds.length ? null : next);
+  }
+
+  toggleAbilityDisabled(abilityId: number): void {
+    this.disabledAbilityIds.set(toggled(this.disabledAbilityIds(), abilityId));
   }
 
   /**
@@ -209,360 +355,23 @@ export class ReportStore {
     this.disabledAbilityIds.set(disabled);
   }
 
-  /** Boss/NPC abilities cast during the fights in view, most frequent first. */
-  readonly bossAbilities = computed<BossAbility[]>(() => {
-    const report = this.report();
-    if (!report) {
-      return [];
-    }
-    const events = this.eventsByFight();
-    const counts = new Map<number, number>();
-    for (const fight of this.fightsInView()) {
-      for (const cast of events.get(fight.id)?.enemyCasts ?? []) {
-        if (cast.type !== 'cast' || cast.abilityGameID <= 1) {
-          continue;
-        }
-        counts.set(cast.abilityGameID, (counts.get(cast.abilityGameID) ?? 0) + 1);
-      }
-    }
-    return [...counts.entries()]
-      .map(([id, count]) => {
-        const ability = report.abilities.get(id);
-        return {
-          id,
-          name: ability?.name ?? `Ability #${id}`,
-          icon: ability?.icon ?? null,
-          count,
-        };
-      })
-      .filter((a) => a.name.toLowerCase() !== 'melee')
-      .sort((a, b) => b.count - a.count);
-  });
-
-  eventsFor(fightId: number): FightEvents | null {
-    return this.eventsByFight().get(fightId) ?? null;
-  }
-
-  readonly events = this.eventsByFight.asReadonly();
-
-  async loadReport(input: string): Promise<void> {
-    const code = parseReportCode(input);
-    if (!code) {
-      this.fail('That does not look like a Warcraft Logs report URL or code.');
-      return;
-    }
-
-    this.status.set('loading');
-    this.error.set(null);
-    this.resetSelection();
-    this.eventsByFight.set(new Map());
-    this.inflight.clear();
-    this.damageByFight.set(new Map());
-    this.dispelsByFight.set(new Map());
-    this.inflightDamage.clear();
-    this.performanceByFight.set(new Map());
-    this.inflightPerformance.clear();
-    this.playerDetailsCache.clear();
-    this.demoEvents = null;
-    this.demoDamage = null;
-    this.demoDispels = null;
-
-    try {
-      if (code === DEMO_REPORT_CODE) {
-        const demo = buildDemoReport();
-        this.report.set(demo.report);
-        this.players.set(demo.players);
-        this.demoEvents = demo.eventsByFight;
-        this.demoDamage = demo.damageByFight;
-        this.demoDispels = demo.dispelsByFight;
-      } else {
-        const report = await this.api.fetchReport(code);
-        if (report.fights.length === 0) {
-          throw new Error('This report contains no boss encounters.');
-        }
-        this.report.set(report);
-      }
-      this.status.set('ready');
-      const first = this.encounters().at(-1);
-      if (first) {
-        await this.selectEncounter(groupKey(first));
-      }
-    } catch (e) {
-      this.fail(e instanceof Error ? e.message : 'Failed to load the report.');
-    }
-  }
-
-  async selectEncounter(key: string): Promise<void> {
-    this.selectedEncounterKey.set(key);
-    this.selectedPlayerId.set(null);
-    this.selectedBossAbilityIds.set(null);
-    this.excludedPullIds.set(new Set());
-
-    const encounter = this.selectedEncounter();
-    if (!encounter) {
-      return;
-    }
-    await this.ensurePlayers(encounter);
-    const defaultPull = encounter.pulls.find((p) => p.kill) ?? encounter.pulls.at(-1);
-    if (defaultPull) {
-      await this.selectPull(defaultPull.id);
-    }
-  }
-
-  async selectPull(fightId: number): Promise<void> {
-    this.selectedPullId.set(fightId);
-    this.selectedPlayerId.set(null);
-    await this.ensureEvents(fightId);
-  }
-
-  /** Switches to the player-across-pulls view and loads events for every pull. */
-  async selectPlayer(playerId: number): Promise<void> {
-    this.selectedPlayerId.set(playerId);
-    const excluded = this.excludedPullIds();
-    const pulls = (this.selectedEncounter()?.pulls ?? []).filter((p) => !excluded.has(p.id));
-    await Promise.all(pulls.map((pull) => this.ensureEvents(pull.id)));
-  }
-
-  showPullView(): void {
-    this.selectedPlayerId.set(null);
-  }
-
-  togglePullExcluded(fightId: number): void {
-    const next = new Set(this.excludedPullIds());
-    if (!next.delete(fightId)) {
-      next.add(fightId);
-    }
-    this.excludedPullIds.set(next);
-    // A pull re-included while in the player view needs its events loaded.
-    if (!next.has(fightId) && this.viewMode() === 'player') {
-      void this.ensureEvents(fightId);
-    }
-  }
-
-  toggleRole(role: PlayerRole): void {
-    const next = new Set(this.enabledRoles());
-    if (!next.delete(role)) {
-      next.add(role);
-    }
-    this.enabledRoles.set(next);
-  }
-
-  toggleRoleCollapsed(role: PlayerRole): void {
-    const next = new Set(this.collapsedRoles());
-    if (!next.delete(role)) {
-      next.add(role);
-    }
-    this.collapsedRoles.set(next);
-  }
-
-  /** Boss ability picker: select every ability (null = all) or none. */
-  selectAllBossAbilities(all: boolean): void {
-    this.selectedBossAbilityIds.set(all ? null : new Set());
-  }
-
-  /** One-press master switch: any category on → all off; all off → all on. */
-  toggleAllCategories(): void {
-    this.enabledCategories.set(
-      this.enabledCategories().size > 0 ? new Set() : new Set(CATEGORIES.map((c) => c.id)),
-    );
-  }
-
-  toggleCategory(category: AbilityCategory): void {
-    const next = new Set(this.enabledCategories());
-    if (!next.delete(category)) {
-      next.add(category);
-    }
-    this.enabledCategories.set(next);
-  }
-
-  toggleBossAbility(abilityId: number, allIds: number[]): void {
-    const current = this.selectedBossAbilityIds();
-    const next = new Set(current ?? allIds);
-    if (!next.delete(abilityId)) {
-      next.add(abilityId);
-    }
-    this.selectedBossAbilityIds.set(next.size === allIds.length ? null : next);
-  }
-
-  private async ensurePlayers(encounter: EncounterGroup): Promise<void> {
-    const report = this.report();
-    if (!report || report.code === DEMO_REPORT_CODE) {
-      return;
-    }
-    const key = groupKey(encounter);
-    let players = this.playerDetailsCache.get(key);
-    if (!players) {
-      players = await this.api.fetchPlayerDetails(
-        report.code,
-        encounter.pulls.map((p) => p.id),
-      );
-      this.playerDetailsCache.set(key, players);
-    }
-    this.players.set(players);
-  }
-
-  /** Pulls of the selected encounter minus the excluded ones. */
-  readonly includedPulls = computed<ReportFight[]>(() => {
-    const excluded = this.excludedPullIds();
-    return (this.selectedEncounter()?.pulls ?? []).filter((p) => !excluded.has(p.id));
-  });
-
-  /** Lazily loads per-player damage/healing totals and parses for one fight. */
-  async ensurePerformance(fightId: number): Promise<void> {
-    if (this.performanceByFight().get(fightId)) {
-      return;
-    }
-    const existing = this.inflightPerformance.get(fightId);
-    if (existing) {
-      return existing;
-    }
-    const task = this.fetchPerformance(fightId);
-    this.inflightPerformance.set(fightId, task);
-    try {
-      await task;
-    } finally {
-      this.inflightPerformance.delete(fightId);
-    }
-  }
-
-  private async fetchPerformance(fightId: number): Promise<void> {
-    const report = this.report();
-    const fight = report?.fights.find((f) => f.id === fightId);
-    if (!report || !fight) {
-      return;
-    }
-    try {
-      const performance =
-        report.code === DEMO_REPORT_CODE
-          ? buildDemoPerformance(fight, this.players())
-          : await this.api.fetchPerformance(report.code, fight);
-      this.performanceByFight.update((map) => new Map(map).set(fightId, performance));
-    } catch (e) {
-      this.error.set(e instanceof Error ? e.message : 'Failed to load performance data.');
-    }
-  }
-
-  /** Lazily loads damage-taken events for one fight (analysis panel). */
-  async ensureDamage(fightId: number): Promise<void> {
-    if (this.damageByFight().get(fightId)) {
-      return;
-    }
-    const existing = this.inflightDamage.get(fightId);
-    if (existing) {
-      return existing;
-    }
-    const task = this.fetchDamage(fightId);
-    this.inflightDamage.set(fightId, task);
-    try {
-      await task;
-    } finally {
-      this.inflightDamage.delete(fightId);
-    }
-  }
-
-  private async fetchDamage(fightId: number): Promise<void> {
-    const report = this.report();
-    const fight = report?.fights.find((f) => f.id === fightId);
-    if (!report || !fight) {
-      return;
-    }
-    this.loadingDamage.update((set) => new Set(set).add(fightId));
-    try {
-      const isDemo = report.code === DEMO_REPORT_CODE;
-      const [damage, dispels] = await Promise.all([
-        this.demoDamage?.get(fightId) ?? this.api.fetchDamageTaken(report.code, fight),
-        isDemo
-          ? Promise.resolve(this.demoDispels?.get(fightId) ?? [])
-          : this.api.fetchDispels(report.code, fight),
-      ]);
-      this.damageByFight.update((map) => new Map(map).set(fightId, damage));
-      this.dispelsByFight.update((map) => new Map(map).set(fightId, dispels));
-    } catch (e) {
-      this.error.set(e instanceof Error ? e.message : 'Failed to load damage events.');
-    } finally {
-      this.loadingDamage.update((set) => {
-        const next = new Set(set);
-        next.delete(fightId);
-        return next;
-      });
-    }
-  }
-
-  async ensureEvents(fightId: number): Promise<void> {
-    if (this.eventsByFight().get(fightId)) {
-      return;
-    }
-    const existing = this.inflight.get(fightId);
-    if (existing) {
-      return existing;
-    }
-
-    const task = this.fetchEvents(fightId);
-    this.inflight.set(fightId, task);
-    try {
-      await task;
-    } finally {
-      this.inflight.delete(fightId);
-    }
-  }
-
-  private async fetchEvents(fightId: number): Promise<void> {
-    const report = this.report();
-    const fight = report?.fights.find((f) => f.id === fightId);
-    if (!report || !fight) {
-      return;
-    }
-
-    this.loadingFights.update((set) => new Set(set).add(fightId));
-    try {
-      const events =
-        this.demoEvents?.get(fightId) ?? (await this.api.fetchFightEvents(report.code, fight));
-      this.eventsByFight.update((map) => new Map(map).set(fightId, events));
-    } catch (e) {
-      this.error.set(e instanceof Error ? e.message : 'Failed to load fight events.');
-    } finally {
-      this.loadingFights.update((set) => {
-        const next = new Set(set);
-        next.delete(fightId);
-        return next;
-      });
-    }
-  }
-
   private resetSelection(): void {
-    this.report.set(null);
-    this.players.set([]);
     this.selectedEncounterKey.set(null);
     this.selectedPullId.set(null);
     this.selectedPlayerId.set(null);
     this.selectedBossAbilityIds.set(null);
     this.disabledAbilityIds.set(new Set());
-  }
-
-  private fail(message: string): void {
-    this.status.set('error');
-    this.error.set(message);
+    this.excludedPullIds.set(new Set());
   }
 }
 
-export interface PlayerAbility {
-  id: number;
-  name: string;
-  icon: string | null;
-  count: number;
-}
-
-export interface CategoryAbilities {
-  meta: CategoryMeta;
-  abilities: PlayerAbility[];
-}
-
-export interface BossAbility {
-  id: number;
-  name: string;
-  icon: string | null;
-  /** Total casts across the fights currently in view. */
-  count: number;
+/** Adds the value if absent, removes it if present. */
+function toggled<T>(set: ReadonlySet<T>, value: T): Set<T> {
+  const next = new Set(set);
+  if (!next.delete(value)) {
+    next.add(value);
+  }
+  return next;
 }
 
 export function encounterKey(fight: ReportFight): string {
