@@ -1,26 +1,48 @@
 <div class="panel">
-  <div class="head">
-    <h3>📋 {{ title() }}</h3>
-    <div class="tabs">
-      <button [class.active]="scope() === 'pull'" (click)="scope.set('pull')">This pull</button>
-      <button [class.active]="scope() === 'all'" (click)="scope.set('all')">
-        All pulls ({{ store.includedPulls().length }})
+  <div class="panel-top">
+    <header class="head">
+      <div class="titles">
+        <h3>{{ title() }}</h3>
+        <p class="subtitle">{{ subtitle() }}</p>
+      </div>
+      <button
+        class="icon-btn"
+        (click)="wide.set(!wide())"
+        [title]="wide() ? 'Narrow panel' : 'Widen panel'"
+      >
+        {{ wide() ? '⇥' : '⇤' }}
+      </button>
+      <button class="icon-btn" (click)="close()" title="Close (Esc)">✕</button>
+    </header>
+
+    <div class="toolbar">
+      <div class="seg">
+        <button [class.active]="scope() === 'pull'" (click)="scope.set('pull')">This pull</button>
+        <button [class.active]="scope() === 'all'" (click)="scope.set('all')">
+          All pulls ({{ store.includedPulls().length }})
+        </button>
+      </div>
+
+      <label class="ignore" title="Ignore everything after the Nth death">
+        ignore after
+        <select
+          [value]="store.ignoreAfterDeaths() ?? ''"
+          (change)="setIgnoreDeaths(asSelect($event).value)"
+        >
+          <option value="">off</option>
+          @for (n of deathOptions; track n) {
+            <option [value]="n">{{ n }}</option>
+          }
+        </select>
+        deaths
+      </label>
+
+      <span class="spacer"></span>
+
+      <button class="ghost" (click)="toggleAllSections()">
+        {{ allCollapsed() ? 'Expand all' : 'Collapse all' }}
       </button>
     </div>
-    <label class="ignore" title="Ignore everything after the Nth death">
-      ignore after
-      <select
-        [value]="store.ignoreAfterDeaths() ?? ''"
-        (change)="setIgnoreDeaths(asSelect($event).value)"
-      >
-        <option value="">off</option>
-        @for (n of deathOptions; track n) {
-          <option [value]="n">{{ n }}</option>
-        }
-      </select>
-      deaths
-    </label>
-    <button class="close" (click)="close()" title="Close (Esc)">✕</button>
   </div>
 
   @if (!ready()) {
@@ -36,239 +58,394 @@
   }
 
   @if (performance().length > 0) {
-    <h4>Overall performance</h4>
-    <table>
-      <thead>
-        <tr>
-          <th class="sortable" (click)="sortBy(perfSort, 'name')">
-            Player{{ arrow(perfSort(), 'name') }}
-          </th>
-          <th class="num sortable" (click)="sortBy(perfSort, 'dps')">
-            DPS{{ arrow(perfSort(), 'dps') }}
-          </th>
-          <th class="num sortable bar-col" (click)="sortBy(perfSort, 'damage')">
-            Damage{{ arrow(perfSort(), 'damage') }}
-          </th>
-          <th class="num sortable" (click)="sortBy(perfSort, 'hps')">
-            HPS{{ arrow(perfSort(), 'hps') }}
-          </th>
-          <th class="num sortable bar-col" (click)="sortBy(perfSort, 'healing')">
-            Healing{{ arrow(perfSort(), 'healing') }}
-          </th>
-          @if (hasParses()) {
-            <th class="num sortable" (click)="sortBy(perfSort, 'parse')">
-              Parse{{ arrow(perfSort(), 'parse') }}
-            </th>
-          }
-        </tr>
-      </thead>
-      <tbody>
-        @for (row of sortedPerformance(); track row.name) {
-          <tr>
-            <td>
-              <span class="name" [style.color]="row.color">{{ row.name }}</span>
-            </td>
-            <td class="num strong">{{ fmt(row.dps) }}</td>
-            <td class="num bar-cell">
-              <span
-                class="cell-bar"
-                [style.width.%]="row.damagePct"
-                [style.background]="row.color"
-              ></span>
-              <span class="cell-value">{{ fmt(row.damage) }}</span>
-            </td>
-            <td class="num">{{ fmt(row.hps) }}</td>
-            <td class="num bar-cell">
-              <span
-                class="cell-bar"
-                [style.width.%]="row.healingPct"
-                [style.background]="row.color"
-              ></span>
-              <span class="cell-value">{{ fmt(row.healing) }}</span>
-            </td>
-            @if (hasParses()) {
-              <td class="num">
-                @if (row.parse !== null) {
-                  <span class="parse" [style.color]="parseColor(row.parse)">{{ row.parse }}</span>
-                } @else {
-                  <span class="ago">—</span>
+    <section class="card">
+      <button class="card-head" (click)="toggleSection('performance')">
+        <span class="chev" [class.open]="isOpen('performance')">▸</span>
+        <span class="card-title">Overall performance</span>
+        <span class="card-meta">{{ performance().length }} raiders</span>
+      </button>
+      @if (isOpen('performance')) {
+        <div class="card-body">
+          <table>
+            <thead>
+              <tr>
+                <th class="sortable" (click)="sortBy(perfSort, 'name')">
+                  Player{{ arrow(perfSort(), 'name') }}
+                </th>
+                <th class="num sortable" (click)="sortBy(perfSort, 'dps')">
+                  DPS{{ arrow(perfSort(), 'dps') }}
+                </th>
+                <th class="num sortable bar-col" (click)="sortBy(perfSort, 'damage')">
+                  Damage{{ arrow(perfSort(), 'damage') }}
+                </th>
+                <th class="num sortable" (click)="sortBy(perfSort, 'hps')">
+                  HPS{{ arrow(perfSort(), 'hps') }}
+                </th>
+                <th class="num sortable bar-col" (click)="sortBy(perfSort, 'healing')">
+                  Healing{{ arrow(perfSort(), 'healing') }}
+                </th>
+                @if (hasParses()) {
+                  <th class="num sortable" (click)="sortBy(perfSort, 'parse')">
+                    Parse{{ arrow(perfSort(), 'parse') }}
+                  </th>
                 }
-              </td>
-            }
-          </tr>
-        }
-      </tbody>
-    </table>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of sortedPerformance(); track row.name) {
+                <tr>
+                  <td>
+                    <span class="name" [style.color]="row.color">{{ row.name }}</span>
+                  </td>
+                  <td class="num strong">{{ fmt(row.dps) }}</td>
+                  <td class="num bar-cell">
+                    <span
+                      class="cell-bar"
+                      [style.width.%]="row.damagePct"
+                      [style.background]="row.color"
+                    ></span>
+                    <span class="cell-value">{{ fmt(row.damage) }}</span>
+                  </td>
+                  <td class="num">{{ fmt(row.hps) }}</td>
+                  <td class="num bar-cell">
+                    <span
+                      class="cell-bar"
+                      [style.width.%]="row.healingPct"
+                      [style.background]="row.color"
+                    ></span>
+                    <span class="cell-value">{{ fmt(row.healing) }}</span>
+                  </td>
+                  @if (hasParses()) {
+                    <td class="num">
+                      @if (row.parse !== null) {
+                        <span class="parse" [style.color]="parseColor(row.parse)">{{
+                          row.parse
+                        }}</span>
+                      } @else {
+                        <span class="ago">—</span>
+                      }
+                    </td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  }
+
+  @if (avoidable().length > 0) {
+    <section class="card danger-card">
+      <button class="card-head" (click)="toggleSection('avoidable')">
+        <span class="chev" [class.open]="isOpen('avoidable')">▸</span>
+        <span class="card-title">⚠ Avoidable damage taken</span>
+        <span class="card-meta">{{ fmt(avoidableTotal()) }} total</span>
+      </button>
+      @if (isOpen('avoidable')) {
+        <div class="card-body">
+          <p class="hint">
+            A mechanic counts as avoidable when one cast of it catches less than half the raid on
+            average (tankbusters excluded). Toggle the ⚠ on any mechanic below to correct it.
+            <button class="linkish" (click)="resetAvoidable()">Reset</button>
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th class="chev-col"></th>
+                <th class="sortable" (click)="sortBy(avoidSort, 'name')">
+                  Player{{ arrow(avoidSort(), 'name') }}
+                </th>
+                <th class="num sortable" (click)="sortBy(avoidSort, 'hits')">
+                  Hits{{ arrow(avoidSort(), 'hits') }}
+                </th>
+                <th class="num sortable bar-col" (click)="sortBy(avoidSort, 'damage')">
+                  Avoidable dmg{{ arrow(avoidSort(), 'damage') }}
+                </th>
+                @if (scope() === 'all') {
+                  <th class="num sortable" (click)="sortBy(avoidSort, 'perPull')">
+                    Per pull{{ arrow(avoidSort(), 'perPull') }}
+                  </th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of sortedAvoidable(); track row.name) {
+                <tr class="expandable" (click)="toggleExpanded('av:' + row.name)">
+                  <td class="chev-col">
+                    <span class="chev" [class.open]="expanded().has('av:' + row.name)">▸</span>
+                  </td>
+                  <td>
+                    <span class="name" [style.color]="row.color">{{ row.name }}</span>
+                  </td>
+                  <td class="num">{{ row.hits }}</td>
+                  <td class="num bar-cell">
+                    <span class="cell-bar danger-bar" [style.width.%]="row.pct"></span>
+                    <span class="cell-value strong">{{ fmt(row.damage) }}</span>
+                  </td>
+                  @if (scope() === 'all') {
+                    <td class="num">{{ fmt(row.perPull) }}</td>
+                  }
+                </tr>
+                @if (expanded().has('av:' + row.name)) {
+                  <tr class="detail">
+                    <td></td>
+                    <td [attr.colspan]="scope() === 'all' ? 4 : 3">
+                      @for (mechanic of row.mechanics; track mechanic.id) {
+                        <div class="bar-row">
+                          <span class="bar-name">
+                            <img [src]="mechanic.icon" (error)="onIconError($event)" alt="" />
+                            <a [href]="mechanic.url" target="_blank" rel="noreferrer">{{
+                              mechanic.name
+                            }}</a>
+                          </span>
+                          <span class="bar-track">
+                            <span class="bar danger-bar" [style.width.%]="mechanic.pct"></span>
+                          </span>
+                          <span class="bar-value">{{ fmt(mechanic.damage) }}</span>
+                          <span class="bar-hits">×{{ mechanic.hits }}</span>
+                        </div>
+                      }
+                    </td>
+                  </tr>
+                }
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
   }
 
   @for (group of sortedMechanicGroups(); track group.phase) {
-    @if (group.label) {
-      <h4 class="phase-header">{{ group.label }}</h4>
-    } @else {
-      <h4>Mechanic hits</h4>
-    }
-    <table class="mechanics">
-      <thead>
-        <tr>
-          <th></th>
-          <th class="sortable" (click)="sortBy(mechSort, 'name')">
-            Mechanic{{ arrow(mechSort(), 'name') }}
-          </th>
-          <th class="num sortable" (click)="sortBy(mechSort, 'hits')">
-            Hits{{ arrow(mechSort(), 'hits') }}
-          </th>
-          <th class="num sortable" (click)="sortBy(mechSort, 'playersHit')">
-            Players hit{{ arrow(mechSort(), 'playersHit') }}
-          </th>
-          <th class="num sortable" (click)="sortBy(mechSort, 'totalDamage')">
-            Total dmg{{ arrow(mechSort(), 'totalDamage') }}
-          </th>
-          <th class="num sortable" (click)="sortBy(mechSort, 'avgHit')">
-            Avg hit{{ arrow(mechSort(), 'avgHit') }}
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (row of group.mechanics; track row.key) {
-          <tr class="mech-row" (click)="toggleExpanded(row.key)">
-            <td class="chev">{{ expanded().has(row.key) ? '▾' : '▸' }}</td>
-            <td class="mech-name">
-              <img [src]="row.icon" (error)="onIconError($event)" alt="" />
-              <a
-                [href]="row.url"
-                target="_blank"
-                rel="noreferrer"
-                title="Open on Wowhead"
-                (click)="$event.stopPropagation()"
-                >{{ row.name }}</a
-              >
-            </td>
-            <td class="num">{{ row.hits }}</td>
-            <td class="num">{{ row.playersHit }}</td>
-            <td class="num strong">{{ fmt(row.totalDamage) }}</td>
-            <td class="num">{{ fmt(row.avgHit) }}</td>
-          </tr>
-          @if (expanded().has(row.key)) {
-            <tr class="detail">
-              <td></td>
-              <td colspan="5">
-                @for (player of row.perPlayer; track player.name) {
-                  <div class="bar-row">
-                    <span class="bar-name" [style.color]="player.color">{{ player.name }}</span>
-                    <span class="bar-track">
-                      <span class="bar" [style.width.%]="player.pct"></span>
-                    </span>
-                    <span class="bar-value">{{ fmt(player.damage) }}</span>
-                    <span class="bar-hits">×{{ player.hits }}</span>
-                  </div>
+    <section class="card">
+      <button class="card-head" (click)="toggleSection('mech:' + group.phase)">
+        <span class="chev" [class.open]="isOpen('mech:' + group.phase)">▸</span>
+        <span class="card-title">{{ group.label ?? 'Mechanic hits' }}</span>
+        <span class="card-meta">{{ group.mechanics.length }} mechanics</span>
+      </button>
+      @if (isOpen('mech:' + group.phase)) {
+        <div class="card-body">
+          <table class="mechanics">
+            <thead>
+              <tr>
+                <th class="chev-col"></th>
+                <th class="sortable" (click)="sortBy(mechSort, 'name')">
+                  Mechanic{{ arrow(mechSort(), 'name') }}
+                </th>
+                <th class="num sortable" (click)="sortBy(mechSort, 'hits')">
+                  Hits{{ arrow(mechSort(), 'hits') }}
+                </th>
+                <th class="num sortable" (click)="sortBy(mechSort, 'playersHit')">
+                  Players{{ arrow(mechSort(), 'playersHit') }}
+                </th>
+                <th class="num sortable" (click)="sortBy(mechSort, 'totalDamage')">
+                  Total dmg{{ arrow(mechSort(), 'totalDamage') }}
+                </th>
+                <th class="num sortable" (click)="sortBy(mechSort, 'avgHit')">
+                  Avg hit{{ arrow(mechSort(), 'avgHit') }}
+                </th>
+                <th class="avoid-col" title="Counts as avoidable damage">⚠</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of group.mechanics; track row.key) {
+                <tr class="expandable" (click)="toggleExpanded(row.key)">
+                  <td class="chev-col">
+                    <span class="chev" [class.open]="expanded().has(row.key)">▸</span>
+                  </td>
+                  <td class="mech-name">
+                    <img [src]="row.icon" (error)="onIconError($event)" alt="" />
+                    <a
+                      [href]="row.url"
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Open on Wowhead"
+                      (click)="$event.stopPropagation()"
+                      >{{ row.name }}</a
+                    >
+                  </td>
+                  <td class="num">{{ row.hits }}</td>
+                  <td class="num">{{ row.playersHit }}</td>
+                  <td class="num strong">{{ fmt(row.totalDamage) }}</td>
+                  <td class="num">{{ fmt(row.avgHit) }}</td>
+                  <td class="avoid-col">
+                    <button
+                      class="avoid-toggle"
+                      [class.on]="isAvoidable(row.id)"
+                      (click)="toggleAvoidable(row.id); $event.stopPropagation()"
+                      [title]="
+                        isAvoidable(row.id)
+                          ? 'Counted as avoidable — click to exclude'
+                          : 'Not counted — click to mark avoidable'
+                      "
+                    >
+                      ⚠
+                    </button>
+                  </td>
+                </tr>
+                @if (expanded().has(row.key)) {
+                  <tr class="detail">
+                    <td></td>
+                    <td colspan="6">
+                      @for (player of row.perPlayer; track player.name) {
+                        <div class="bar-row">
+                          <span class="bar-name" [style.color]="player.color">{{
+                            player.name
+                          }}</span>
+                          <span class="bar-track">
+                            <span
+                              class="bar"
+                              [style.width.%]="player.pct"
+                              [style.background]="player.color"
+                            ></span>
+                          </span>
+                          <span class="bar-value">{{ fmt(player.damage) }}</span>
+                          <span class="bar-hits">×{{ player.hits }}</span>
+                        </div>
+                      }
+                    </td>
+                  </tr>
                 }
-              </td>
-            </tr>
-          }
-        }
-      </tbody>
-    </table>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
   }
 
   @if (consumables().length > 0) {
-    <h4>Consumables</h4>
-    <table>
-      <thead>
-        <tr>
-          <th class="sortable" (click)="sortBy(consumSort, 'name')">
-            Player{{ arrow(consumSort(), 'name') }}
-          </th>
-          <th class="num sortable" (click)="sortBy(consumSort, 'combatPots')">
-            Combat pots{{ arrow(consumSort(), 'combatPots') }}
-          </th>
-          <th class="num sortable" (click)="sortBy(consumSort, 'healthPots')">
-            Health pots &amp; stones{{ arrow(consumSort(), 'healthPots') }}
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (row of sortedConsumables(); track row.name) {
-          <tr>
-            <td>
-              <span class="name" [style.color]="row.color">{{ row.name }}</span>
-            </td>
-            <td class="num" [class.none]="row.combatPots === 0">{{ row.combatPots }}</td>
-            <td class="num">{{ row.healthPots }}</td>
-          </tr>
-        }
-      </tbody>
-    </table>
+    <section class="card">
+      <button class="card-head" (click)="toggleSection('consumables')">
+        <span class="chev" [class.open]="isOpen('consumables')">▸</span>
+        <span class="card-title">Consumables</span>
+        <span class="card-meta">{{ consumables().length }} raiders</span>
+      </button>
+      @if (isOpen('consumables')) {
+        <div class="card-body">
+          <table>
+            <thead>
+              <tr>
+                <th class="sortable" (click)="sortBy(consumSort, 'name')">
+                  Player{{ arrow(consumSort(), 'name') }}
+                </th>
+                <th class="num sortable" (click)="sortBy(consumSort, 'combatPots')">
+                  Combat pots{{ arrow(consumSort(), 'combatPots') }}
+                </th>
+                <th class="num sortable" (click)="sortBy(consumSort, 'healthPots')">
+                  Health pots &amp; stones{{ arrow(consumSort(), 'healthPots') }}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of sortedConsumables(); track row.name) {
+                <tr>
+                  <td>
+                    <span class="name" [style.color]="row.color">{{ row.name }}</span>
+                  </td>
+                  <td class="num" [class.none]="row.combatPots === 0">{{ row.combatPots }}</td>
+                  <td class="num">{{ row.healthPots }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
   }
 
   @if (scope() === 'pull' && deathRows().length > 0) {
-    <h4>Deaths</h4>
-    <table>
-      <thead>
-        <tr>
-          <th>Time</th>
-          <th>Player</th>
-          <th>Killed by</th>
-          <th>Last defensive / health pot before death</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (death of deathRows(); track $index) {
-          <tr>
-            <td class="time">{{ format(death.timeMs) }}</td>
-            <td>
-              <span class="name" [style.color]="death.playerColor">{{ death.playerName }}</span>
-            </td>
-            <td>
-              <img [src]="death.abilityIcon" (error)="onIconError($event)" alt="" />
-              @if (death.abilityUrl) {
-                <a [href]="death.abilityUrl" target="_blank" rel="noreferrer">{{
-                  death.abilityName
-                }}</a>
-              } @else {
-                {{ death.abilityName }}
+    <section class="card">
+      <button class="card-head" (click)="toggleSection('deaths')">
+        <span class="chev" [class.open]="isOpen('deaths')">▸</span>
+        <span class="card-title">Deaths</span>
+        <span class="card-meta">{{ deathRows().length }}</span>
+      </button>
+      @if (isOpen('deaths')) {
+        <div class="card-body">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Player</th>
+                <th>Killed by</th>
+                <th>Last defensive / health pot before death</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (death of deathRows(); track $index) {
+                <tr>
+                  <td class="time">{{ format(death.timeMs) }}</td>
+                  <td>
+                    <span class="name" [style.color]="death.playerColor">{{
+                      death.playerName
+                    }}</span>
+                  </td>
+                  <td>
+                    <img [src]="death.abilityIcon" (error)="onIconError($event)" alt="" />
+                    @if (death.abilityUrl) {
+                      <a [href]="death.abilityUrl" target="_blank" rel="noreferrer">{{
+                        death.abilityName
+                      }}</a>
+                    } @else {
+                      {{ death.abilityName }}
+                    }
+                  </td>
+                  <td>
+                    @if (death.mitigation; as m) {
+                      <img [src]="m.icon" (error)="onIconError($event)" alt="" />
+                      {{ m.name }} <span class="ago">{{ m.secondsBefore }}s before</span>
+                    } @else {
+                      <span class="none">— nothing pressed</span>
+                    }
+                  </td>
+                </tr>
               }
-            </td>
-            <td>
-              @if (death.mitigation; as m) {
-                <img [src]="m.icon" (error)="onIconError($event)" alt="" />
-                {{ m.name }} <span class="ago">{{ m.secondsBefore }}s before</span>
-              } @else {
-                <span class="none">— nothing pressed</span>
-              }
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
   }
 
   @if (scope() === 'all' && deathLeaderboard().length > 0) {
-    <h4>Deaths across pulls</h4>
-    <table>
-      <thead>
-        <tr>
-          <th class="sortable" (click)="sortBy(boardSort, 'name')">
-            Player{{ arrow(boardSort(), 'name') }}
-          </th>
-          <th class="num sortable" (click)="sortBy(boardSort, 'deaths')">
-            Deaths{{ arrow(boardSort(), 'deaths') }}
-          </th>
-          <th class="num sortable" (click)="sortBy(boardSort, 'unmitigated')">
-            …without pressing anything{{ arrow(boardSort(), 'unmitigated') }}
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (row of sortedLeaderboard(); track row.name) {
-          <tr>
-            <td>
-              <span class="name" [style.color]="row.color">{{ row.name }}</span>
-            </td>
-            <td class="num">{{ row.deaths }}</td>
-            <td class="num" [class.none]="row.unmitigated > 0">{{ row.unmitigated }}</td>
-          </tr>
-        }
-      </tbody>
-    </table>
+    <section class="card">
+      <button class="card-head" (click)="toggleSection('deaths')">
+        <span class="chev" [class.open]="isOpen('deaths')">▸</span>
+        <span class="card-title">Deaths across pulls</span>
+        <span class="card-meta">{{ deathLeaderboard().length }} raiders</span>
+      </button>
+      @if (isOpen('deaths')) {
+        <div class="card-body">
+          <table>
+            <thead>
+              <tr>
+                <th class="sortable" (click)="sortBy(boardSort, 'name')">
+                  Player{{ arrow(boardSort(), 'name') }}
+                </th>
+                <th class="num sortable" (click)="sortBy(boardSort, 'deaths')">
+                  Deaths{{ arrow(boardSort(), 'deaths') }}
+                </th>
+                <th class="num sortable" (click)="sortBy(boardSort, 'unmitigated')">
+                  …without pressing anything{{ arrow(boardSort(), 'unmitigated') }}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of sortedLeaderboard(); track row.name) {
+                <tr>
+                  <td>
+                    <span class="name" [style.color]="row.color">{{ row.name }}</span>
+                  </td>
+                  <td class="num">{{ row.deaths }}</td>
+                  <td class="num" [class.none]="row.unmitigated > 0">{{ row.unmitigated }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
   }
 </div>

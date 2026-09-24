@@ -1,6 +1,9 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
+  ElementRef,
+  afterNextRender,
   computed,
   effect,
   inject,
@@ -20,8 +23,19 @@ import {
 import { ReportStore } from '../../core/state/report-store';
 
 /** Categories that count as "tried to survive" right before a death. */
-const MITIGATION_CATEGORIES = new Set(['defensive', 'immunity', 'health-pot', 'healing-cd']);
+const MITIGATION_CATEGORIES = new Set(['defensive', 'immunity', 'health-pot', 'raid-cd']);
 const MITIGATION_WINDOW_MS = 12_000;
+
+/**
+ * A mechanic is treated as avoidable by default when a single cast of it hits
+ * fewer than this share of the raid on average — raid-wide damage is
+ * unavoidable, a few people eating it usually is not. Tank-only mechanics are
+ * excluded as tankbusters.
+ */
+const AVOIDABLE_RAID_SHARE = 0.5;
+
+/** Hits of one ability closer together than this belong to the same cast. */
+const OCCURRENCE_GAP_MS = 1_500;
 
 type AnalysisScope = 'pull' | 'all';
 
@@ -94,6 +108,38 @@ interface PerformanceRow {
   parse: number | null;
 }
 
+interface AvoidableMechanic {
+  id: number;
+  name: string;
+  icon: string;
+  url: string;
+  damage: number;
+  hits: number;
+  /** Bar width relative to this player's worst mechanic, 0-100. */
+  pct: number;
+}
+
+interface AvoidableRow {
+  name: string;
+  color: string;
+  damage: number;
+  hits: number;
+  /** Average per pull in the current scope. */
+  perPull: number;
+  /** Bar width relative to the worst raider, 0-100. */
+  pct: number;
+  mechanics: AvoidableMechanic[];
+}
+
+/** Per-ability damage aggregate over the fights in scope. */
+interface Agg {
+  hits: number;
+  total: number;
+  byPlayer: Map<number, { damage: number; hits: number }>;
+  /** Distinct casts (hit clusters), used to judge how wide a mechanic spreads. */
+  occurrences: number;
+}
+
 interface SortState {
   key: string;
   dir: 1 | -1;
@@ -118,6 +164,7 @@ function sortRows<T>(rows: T[], sort: SortState): T[] {
   styleUrl: './pull-analysis.scss',
   host: {
     '(document:keydown.escape)': 'close()',
+    '[class.wide]': 'wide()',
   },
 })
 export class PullAnalysis {
@@ -127,11 +174,48 @@ export class PullAnalysis {
   protected readonly expanded = signal<ReadonlySet<string>>(new Set());
   protected readonly deathOptions = [1, 2, 3, 4, 5, 8, 10];
 
+  /** Panel stretched to near full width. */
+  protected readonly wide = signal(false);
+
   // Per-table sort states.
   protected readonly perfSort = signal<SortState>({ key: 'damage', dir: -1 });
   protected readonly consumSort = signal<SortState>({ key: 'name', dir: 1 });
   protected readonly boardSort = signal<SortState>({ key: 'deaths', dir: -1 });
   protected readonly mechSort = signal<SortState>({ key: 'name', dir: 1 });
+  protected readonly avoidSort = signal<SortState>({ key: 'damage', dir: -1 });
+
+  /** Collapsed section ids; sections are open unless listed here. */
+  private readonly collapsed = signal<ReadonlySet<string>>(new Set());
+
+  protected isOpen(section: string): boolean {
+    return !this.collapsed().has(section);
+  }
+
+  protected toggleSection(section: string): void {
+    const next = new Set(this.collapsed());
+    if (!next.delete(section)) {
+      next.add(section);
+    }
+    this.collapsed.set(next);
+  }
+
+  /** All section ids currently rendered, for collapse/expand all. */
+  protected readonly sectionIds = computed(() => [
+    'performance',
+    'avoidable',
+    ...this.mechanicGroups().map((g) => `mech:${g.phase}`),
+    'consumables',
+    'deaths',
+  ]);
+
+  protected readonly allCollapsed = computed(() => {
+    const collapsed = this.collapsed();
+    return this.sectionIds().every((id) => collapsed.has(id));
+  });
+
+  protected toggleAllSections(): void {
+    this.collapsed.set(this.allCollapsed() ? new Set() : new Set(this.sectionIds()));
+  }
 
   protected sortBy(state: typeof this.perfSort, key: string): void {
     const current = state();
@@ -147,6 +231,21 @@ export class PullAnalysis {
   }
 
   constructor() {
+    // Publish the sticky header's height so table headers can clear it.
+    const host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
+    const destroyRef = inject(DestroyRef);
+    afterNextRender(() => {
+      const top = host.querySelector('.panel-top');
+      if (!top) {
+        return;
+      }
+      const observer = new ResizeObserver(([entry]) => {
+        host.style.setProperty('--top-h', `${Math.round(entry.contentRect.height)}px`);
+      });
+      observer.observe(top);
+      destroyRef.onDestroy(() => observer.disconnect());
+    });
+
     // Lazily pull damage (and, for the all-pulls tab, cast/death) events.
     effect(() => {
       const fights = this.scopeFights();
@@ -180,20 +279,46 @@ export class PullAnalysis {
 
   protected readonly title = computed(() => {
     if (this.scope() === 'all') {
-      return `Encounter analysis — ${this.scopeFights().length} pulls`;
+      return `${this.store.selectedEncounter()?.name ?? 'Encounter'} — all pulls`;
     }
     const pull = this.store.selectedPull();
     const pulls = this.store.selectedEncounter()?.pulls ?? [];
     const index = pull ? pulls.findIndex((p) => p.id === pull.id) + 1 : 0;
-    return `Pull ${index} analysis`;
+    return `Pull ${index}`;
   });
 
-  /** Wipefest-style mechanic tables from damage-taken events, grouped by phase. */
-  protected readonly mechanicGroups = computed<PhaseGroup[]>(() => {
-    const report = this.store.report();
-    if (!report) {
-      return [];
+  protected readonly subtitle = computed(() => {
+    const fights = this.scopeFights();
+    if (this.scope() === 'all') {
+      const kills = fights.filter((f) => f.kill).length;
+      const time = formatOffset(fights.reduce((sum, f) => sum + fightDuration(f), 0));
+      return `${fights.length} pulls · ${kills} kill${kills === 1 ? '' : 's'} · ${time} total`;
     }
+    const pull = this.store.selectedPull();
+    if (!pull) {
+      return '';
+    }
+    const outcome = pull.kill
+      ? 'Kill'
+      : `Wipe at ${Math.round(pull.fightPercentage ?? 0)}%` +
+        (pull.lastPhase !== null ? ` · P${pull.lastPhase}` : '');
+    return `${formatOffset(fightDuration(pull))} · ${outcome}`;
+  });
+
+  /**
+   * Single pass over the damage-taken events in scope, aggregated per phase and
+   * (phase-independently) per ability. Both the mechanic tables and the
+   * avoidable-damage table read from this.
+   */
+  private readonly damageAggregate = computed(() => {
+    const report = this.store.report();
+    const byPhase = new Map<number, Map<number, Agg>>();
+    const byAbility = new Map<number, Agg>();
+    let sawTransitions = false;
+    if (!report) {
+      return { byPhase, byAbility, sawTransitions };
+    }
+
     const damage = this.store.damageByFight();
     const players = new Map(this.store.players().map((p) => [p.id, p]));
     // Only true enemy mechanics: damage sourced by NPCs, not player self-damage
@@ -202,16 +327,20 @@ export class PullAnalysis {
       report.actors.filter((a) => a.type === 'NPC' && a.name !== 'Environment').map((a) => a.id),
     );
 
-    interface Agg {
-      hits: number;
-      total: number;
-      byPlayer: Map<number, { damage: number; hits: number }>;
-    }
-    const byPhase = new Map<number, Map<number, Agg>>();
-    let sawTransitions = false;
+    const record = (agg: Agg, targetId: number, amount: number) => {
+      agg.hits++;
+      agg.total += amount;
+      const p = agg.byPlayer.get(targetId) ?? { damage: 0, hits: 0 };
+      p.damage += amount;
+      p.hits++;
+      agg.byPlayer.set(targetId, p);
+    };
+    const emptyAgg = (): Agg => ({ hits: 0, total: 0, byPlayer: new Map(), occurrences: 0 });
 
     for (const fight of this.scopeFights()) {
       const cutoff = this.cutoffFor(fight);
+      // Last hit timestamp per ability, to split hits into distinct casts.
+      const lastHitAt = new Map<number, number>();
       const transitions = (fight.phaseTransitions ?? [])
         .slice()
         .sort((a, b) => a.startTime - b.startTime);
@@ -238,26 +367,46 @@ export class PullAnalysis {
         if (cutoff !== null && event.timestamp > cutoff) {
           continue;
         }
+        const amount = event.amount + (event.absorbed ?? 0);
+
         const phase = phaseOf(event.timestamp);
         let abilities = byPhase.get(phase);
         if (!abilities) {
           abilities = new Map();
           byPhase.set(phase, abilities);
         }
-        const amount = event.amount + (event.absorbed ?? 0);
-        let agg = abilities.get(event.abilityGameID);
-        if (!agg) {
-          agg = { hits: 0, total: 0, byPlayer: new Map() };
-          abilities.set(event.abilityGameID, agg);
+        let phaseAgg = abilities.get(event.abilityGameID);
+        if (!phaseAgg) {
+          phaseAgg = emptyAgg();
+          abilities.set(event.abilityGameID, phaseAgg);
         }
-        agg.hits++;
-        agg.total += amount;
-        const p = agg.byPlayer.get(event.targetID) ?? { damage: 0, hits: 0 };
-        p.damage += amount;
-        p.hits++;
-        agg.byPlayer.set(event.targetID, p);
+        record(phaseAgg, event.targetID, amount);
+
+        let totalAgg = byAbility.get(event.abilityGameID);
+        if (!totalAgg) {
+          totalAgg = emptyAgg();
+          byAbility.set(event.abilityGameID, totalAgg);
+        }
+        const previous = lastHitAt.get(event.abilityGameID);
+        if (previous === undefined || event.timestamp - previous > OCCURRENCE_GAP_MS) {
+          totalAgg.occurrences++;
+        }
+        lastHitAt.set(event.abilityGameID, event.timestamp);
+        record(totalAgg, event.targetID, amount);
       }
     }
+
+    return { byPhase, byAbility, sawTransitions };
+  });
+
+  /** Wipefest-style mechanic tables from damage-taken events, grouped by phase. */
+  protected readonly mechanicGroups = computed<PhaseGroup[]>(() => {
+    const report = this.store.report();
+    if (!report) {
+      return [];
+    }
+    const players = new Map(this.store.players().map((p) => [p.id, p]));
+    const { byPhase, sawTransitions } = this.damageAggregate();
 
     const groups = [...byPhase.entries()]
       .sort((a, b) => a[0] - b[0])
@@ -275,6 +424,118 @@ export class PullAnalysis {
     }
     return groups;
   });
+
+  // --- avoidable damage ---
+
+  /** Explicit user decisions, overriding the default heuristic per ability. */
+  private readonly avoidableOverrides = signal<ReadonlyMap<number, boolean>>(new Map());
+
+  /** Abilities the heuristic flags as avoidable, before user overrides. */
+  private readonly heuristicAvoidable = computed<ReadonlySet<number>>(() => {
+    const { byAbility } = this.damageAggregate();
+    const tanks = new Set(
+      this.store
+        .players()
+        .filter((p) => p.role === 'tank')
+        .map((p) => p.id),
+    );
+    const raidSize = Math.max(1, this.store.players().length);
+    const flagged = new Set<number>();
+
+    for (const [id, agg] of byAbility) {
+      const hitIds = [...agg.byPlayer.keys()];
+      const tankOnly = hitIds.length > 0 && hitIds.every((playerId) => tanks.has(playerId));
+      // How many raiders a single cast catches on average.
+      const perCast = agg.hits / Math.max(1, agg.occurrences);
+      if (!tankOnly && perCast < raidSize * AVOIDABLE_RAID_SHARE) {
+        flagged.add(id);
+      }
+    }
+    return flagged;
+  });
+
+  protected isAvoidable(abilityId: number): boolean {
+    return this.avoidableOverrides().get(abilityId) ?? this.heuristicAvoidable().has(abilityId);
+  }
+
+  protected toggleAvoidable(abilityId: number): void {
+    const next = new Map(this.avoidableOverrides());
+    next.set(abilityId, !this.isAvoidable(abilityId));
+    this.avoidableOverrides.set(next);
+  }
+
+  protected resetAvoidable(): void {
+    this.avoidableOverrides.set(new Map());
+  }
+
+  /** Avoidable damage taken per raider, broken down by mechanic. */
+  protected readonly avoidable = computed<AvoidableRow[]>(() => {
+    const report = this.store.report();
+    if (!report) {
+      return [];
+    }
+    const { byAbility } = this.damageAggregate();
+    const pullCount = Math.max(1, this.scopeFights().length);
+    const perPlayer = new Map<
+      number,
+      { damage: number; hits: number; mechanics: AvoidableMechanic[] }
+    >();
+
+    for (const [id, agg] of byAbility) {
+      if (!this.isAvoidable(id)) {
+        continue;
+      }
+      const ability = report.abilities.get(id);
+      for (const [playerId, stats] of agg.byPlayer) {
+        const entry = perPlayer.get(playerId) ?? { damage: 0, hits: 0, mechanics: [] };
+        entry.damage += stats.damage;
+        entry.hits += stats.hits;
+        entry.mechanics.push({
+          id,
+          name: ability?.name ?? `Ability #${id}`,
+          icon: abilityIconUrl(ability?.icon),
+          url: `https://www.wowhead.com/spell=${id}`,
+          damage: stats.damage,
+          hits: stats.hits,
+          pct: 0,
+        });
+        perPlayer.set(playerId, entry);
+      }
+    }
+
+    const rows = this.store
+      .players()
+      .filter((player) => perPlayer.has(player.id))
+      .map((player) => {
+        const entry = perPlayer.get(player.id)!;
+        const mechanics = entry.mechanics.sort((a, b) => b.damage - a.damage);
+        const worst = mechanics[0]?.damage ?? 1;
+        for (const mechanic of mechanics) {
+          mechanic.pct = Math.max(2, Math.round((mechanic.damage / worst) * 100));
+        }
+        return {
+          name: player.name,
+          color: classColor(player.className),
+          damage: entry.damage,
+          hits: entry.hits,
+          perPull: entry.damage / pullCount,
+          pct: 0,
+          mechanics,
+        };
+      });
+
+    const max = Math.max(1, ...rows.map((r) => r.damage));
+    for (const row of rows) {
+      row.pct = Math.round((row.damage / max) * 100);
+    }
+    return rows;
+  });
+
+  protected readonly sortedAvoidable = computed(() => sortRows(this.avoidable(), this.avoidSort()));
+
+  protected readonly avoidableTotal = computed(() =>
+    this.avoidable().reduce((sum, row) => sum + row.damage, 0),
+  );
 
   private toMechanicRow(
     phase: number,

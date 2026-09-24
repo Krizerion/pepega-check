@@ -4,7 +4,7 @@ describe('classifyAbility', () => {
   it('classifies well-known spell IDs', () => {
     expect(classifyAbility(871, 'Shield Wall')).toBe('defensive');
     expect(classifyAbility(642, 'Divine Shield')).toBe('immunity');
-    expect(classifyAbility(98008, 'Spirit Link Totem')).toBe('healing-cd');
+    expect(classifyAbility(98008, 'Spirit Link Totem')).toBe('raid-cd');
     expect(classifyAbility(190319, 'Combustion')).toBe('offensive');
     expect(classifyAbility(6262, 'Healthstone')).toBe('health-pot');
     expect(classifyAbility(431932, 'Tempered Potion')).toBe('combat-pot');

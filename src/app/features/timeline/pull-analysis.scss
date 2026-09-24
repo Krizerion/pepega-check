@@ -3,10 +3,17 @@
   top: 0;
   right: 0;
   bottom: 0;
-  width: min(680px, 92vw);
   z-index: 80;
   display: block;
+  /* The width lives on the positioned host: a fixed element otherwise
+     shrink-wraps its content and the panel's own width resolves a frame late. */
+  width: min(880px, 94vw);
+  transition: width 0.18s ease-out;
   animation: slide-in 0.18s ease-out;
+}
+
+:host(.wide) {
+  width: min(1500px, 99vw);
 }
 
 @keyframes slide-in {
@@ -20,29 +27,111 @@
   }
 }
 
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .panel {
   height: 100%;
+  width: 100%;
   border-left: 1px solid var(--border-strong);
-  background: var(--bg-1);
-  padding: 14px 18px 20px;
+  background: var(--bg-0);
   overflow-y: auto;
-  box-shadow: -12px 0 32px rgba(0, 0, 0, 0.5);
+  box-shadow: -18px 0 48px rgba(0, 0, 0, 0.55);
+  padding-bottom: 28px;
+}
+
+/* ---------- header ---------- */
+
+/* Header and toolbar stick as one block so the table headers below only ever
+   need to clear a single, known offset (--top-h). */
+.panel-top {
+  position: sticky;
+  top: 0;
+  z-index: 3;
 }
 
 .head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
-  position: sticky;
-  top: -14px;
-  background: var(--bg-1);
-  padding: 6px 0;
-  z-index: 2;
+  gap: 10px;
+  padding: 12px 18px 10px;
+  background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+  border-bottom: 1px solid var(--border-strong);
 }
 
-.head h3 {
+.titles {
   flex: 1;
+  min-width: 0;
+}
+
+h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.subtitle {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 1;
+
+  &:hover {
+    background: var(--bg-3);
+    color: var(--text-0);
+  }
+}
+
+/* ---------- toolbar ---------- */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 18px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border);
+}
+
+.seg {
+  display: inline-flex;
+  padding: 2px;
+  background: var(--bg-0);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+
+  button {
+    border: none;
+    background: none;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--text-2);
+
+    &:hover {
+      color: var(--text-0);
+      background: var(--bg-2);
+    }
+
+    &.active {
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+    }
+  }
 }
 
 .ignore {
@@ -54,58 +143,36 @@
   white-space: nowrap;
 
   select {
-    padding: 1px 4px;
+    padding: 2px 5px;
     font-size: 11.5px;
   }
 }
 
-.phase-header {
-  color: var(--warn);
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 3px;
+.spacer {
+  flex: 1;
 }
 
-.close {
+.ghost,
+.linkish {
   background: none;
   border: none;
-  padding: 2px 8px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11.5px;
   color: var(--text-2);
-  font-size: 15px;
 
   &:hover {
+    background: var(--bg-3);
     color: var(--text-0);
   }
 }
 
-h3 {
-  margin: 0;
-  font-size: 13px;
+.linkish {
+  text-decoration: underline;
+  padding: 0 4px;
 }
 
-h4 {
-  margin: 14px 0 6px;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-2);
-}
-
-.tabs {
-  display: inline-flex;
-  gap: 4px;
-
-  button {
-    padding: 3px 12px;
-    font-size: 12px;
-    border-radius: 999px;
-
-    &.active {
-      background: var(--accent-soft);
-      border-color: var(--accent);
-      color: var(--text-0);
-    }
-  }
-}
+/* ---------- status + summary ---------- */
 
 .loading {
   display: flex;
@@ -113,7 +180,7 @@ h4 {
   gap: 8px;
   color: var(--text-2);
   font-size: 12.5px;
-  margin: 6px 0;
+  margin: 14px 18px 0;
 }
 
 .mini-spinner {
@@ -125,52 +192,141 @@ h4 {
   animation: spin 0.8s linear infinite;
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .summary {
-  margin: 0;
-  padding-left: 18px;
+  margin: 14px 18px 0;
+  padding: 10px 14px 10px 32px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
   color: var(--text-1);
   font-size: 13px;
 
-  li {
-    margin-bottom: 2px;
+  li + li {
+    margin-top: 3px;
   }
 }
+
+/* ---------- cards ---------- */
+
+.card {
+  margin: 14px 18px 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-1);
+  /* No overflow:hidden here — it would clip the sticky table headers out of
+     the panel's scroll context. Corners are rounded on the children instead. */
+
+  &.danger-card {
+    border-color: rgba(229, 72, 77, 0.4);
+
+    .card-head {
+      background: linear-gradient(90deg, rgba(229, 72, 77, 0.14), transparent 60%);
+    }
+  }
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 14px;
+  background: var(--bg-2);
+  border: none;
+  border-radius: 9px 9px 0 0;
+  text-align: left;
+
+  &:hover {
+    background: var(--bg-3);
+  }
+
+  /* Collapsed: the header is the whole card, so round every corner. */
+  &:last-child {
+    border-radius: 9px;
+  }
+}
+
+.card-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-0);
+}
+
+.card-meta {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.card-body {
+  padding: 4px 14px 12px;
+}
+
+.chev {
+  display: inline-block;
+  color: var(--text-2);
+  font-size: 10px;
+  transition: transform 0.15s ease;
+
+  &.open {
+    transform: rotate(90deg);
+  }
+}
+
+.hint {
+  margin: 8px 0 6px;
+  font-size: 11.5px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+/* ---------- tables ---------- */
 
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12.5px;
+  font-size: 13px;
 }
 
 th {
+  position: sticky;
+  top: var(--top-h, 115px);
+  z-index: 1;
   text-align: left;
   color: var(--text-2);
-  font-weight: 500;
-  font-size: 11px;
+  font-weight: 600;
+  font-size: 10.5px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 4px 10px 4px 0;
-  border-bottom: 1px solid var(--border);
+  letter-spacing: 0.06em;
+  padding: 8px 10px 7px 0;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border-strong);
+  white-space: nowrap;
 }
 
 td {
-  padding: 4px 10px 4px 0;
-  border-bottom: 1px solid rgba(51, 51, 62, 0.5);
+  padding: 6px 10px 6px 0;
+  border-bottom: 1px solid rgba(51, 51, 62, 0.45);
   vertical-align: middle;
 
   img {
-    width: 16px;
-    height: 16px;
-    border-radius: 3px;
-    vertical-align: -3px;
-    margin-right: 4px;
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    vertical-align: -4px;
+    margin-right: 5px;
   }
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+tbody tr:nth-child(even of :not(.detail)) td {
+  background: rgba(255, 255, 255, 0.015);
 }
 
 th.num,
@@ -180,12 +336,22 @@ td.num {
   white-space: nowrap;
 }
 
-td.strong {
+td.strong,
+.cell-value.strong {
   color: var(--text-0);
   font-weight: 600;
 }
 
-.mech-row {
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+
+  &:hover {
+    color: var(--text-0);
+  }
+}
+
+.expandable {
   cursor: pointer;
 
   &:hover td {
@@ -193,39 +359,105 @@ td.strong {
   }
 }
 
-.chev {
-  width: 16px;
-  color: var(--text-2);
+.chev-col {
+  width: 18px;
+  padding-right: 4px;
+}
+
+.avoid-col {
+  width: 30px;
+  text-align: center;
+  padding-right: 0;
+}
+
+.avoid-toggle {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 1px 5px;
+  font-size: 11px;
+  filter: grayscale(1);
+  opacity: 0.35;
+
+  &:hover {
+    opacity: 0.8;
+    background: var(--bg-3);
+  }
+
+  &.on {
+    filter: none;
+    opacity: 1;
+    border-color: rgba(229, 72, 77, 0.5);
+    background: rgba(229, 72, 77, 0.12);
+  }
 }
 
 .mech-name {
   white-space: nowrap;
 }
 
+/* ---------- bars ---------- */
+
+th.bar-col,
+td.bar-cell {
+  min-width: 110px;
+}
+
+td.bar-cell {
+  position: relative;
+
+  .cell-bar {
+    position: absolute;
+    top: 5px;
+    bottom: 5px;
+    left: 0;
+    border-radius: 3px;
+    opacity: 0.32;
+    pointer-events: none;
+  }
+
+  .cell-value {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+.danger-bar {
+  background: linear-gradient(90deg, #e5484d, #f5a524);
+}
+
 .detail td {
   background: var(--bg-0);
-  padding: 8px 10px;
+  padding: 9px 10px;
 }
 
 .bar-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 1px 0;
+  padding: 2px 0;
   font-size: 12px;
 }
 
 .bar-name {
-  flex: 0 0 110px;
+  flex: 0 0 168px;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+
+  img {
+    width: 15px;
+    height: 15px;
+    border-radius: 3px;
+    vertical-align: -3px;
+    margin-right: 4px;
+  }
 }
 
 .bar-track {
   flex: 1 1 auto;
-  height: 12px;
+  height: 13px;
   background: var(--bg-2);
   border-radius: 3px;
   overflow: hidden;
@@ -234,23 +466,25 @@ td.strong {
 .bar {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, #7c5cff, #b17ae8);
   border-radius: 3px;
+  opacity: 0.85;
 }
 
 .bar-value {
-  flex: 0 0 52px;
+  flex: 0 0 60px;
   text-align: right;
   font-variant-numeric: tabular-nums;
   color: var(--text-1);
 }
 
 .bar-hits {
-  flex: 0 0 32px;
+  flex: 0 0 34px;
   text-align: right;
   color: var(--text-2);
   font-size: 11px;
 }
+
+/* ---------- misc cells ---------- */
 
 .time {
   font-variant-numeric: tabular-nums;
@@ -272,40 +506,6 @@ td.strong {
 
 .parse {
   font-weight: 700;
-}
-
-th.sortable {
-  cursor: pointer;
-  user-select: none;
-  white-space: nowrap;
-
-  &:hover {
-    color: var(--text-0);
-  }
-}
-
-th.bar-col,
-td.bar-cell {
-  min-width: 96px;
-}
-
-td.bar-cell {
-  position: relative;
-
-  .cell-bar {
-    position: absolute;
-    top: 4px;
-    bottom: 4px;
-    left: 0;
-    border-radius: 2px;
-    opacity: 0.3;
-    pointer-events: none;
-  }
-
-  .cell-value {
-    position: relative;
-    z-index: 1;
-  }
 }
 
 td a {

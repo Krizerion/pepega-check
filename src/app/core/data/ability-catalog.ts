@@ -7,7 +7,7 @@
 export type AbilityCategory =
   | 'defensive'
   | 'immunity'
-  | 'healing-cd'
+  | 'raid-cd'
   | 'offensive'
   | 'movement'
   | 'utility'
@@ -23,7 +23,7 @@ export interface CategoryMeta {
 export const CATEGORIES: CategoryMeta[] = [
   { id: 'defensive', label: 'Defensives', color: '#f5a524' },
   { id: 'immunity', label: 'Immunities', color: '#ffd60a' },
-  { id: 'healing-cd', label: 'Healing CDs', color: '#46a758' },
+  { id: 'raid-cd', label: 'Raid CDs', color: '#46a758' },
   { id: 'offensive', label: 'Offensive CDs', color: '#e5484d' },
   { id: 'movement', label: 'Movement', color: '#3fc7eb' },
   { id: 'utility', label: 'Utility', color: '#8788ee' },
@@ -106,7 +106,7 @@ const byCategory: Record<AbilityCategory, number[]> = {
     1022, // Blessing of Protection
     204018, // Blessing of Spellwarding
   ],
-  'healing-cd': [
+  'raid-cd': [
     // Paladin
     31821, // Aura Mastery
     633, // Lay on Hands
