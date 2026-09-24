@@ -364,6 +364,12 @@
       </button>
       @if (isOpen('deaths')) {
         <div class="card-body">
+          <p class="hint disclaimer">
+            <strong>⚠ Read this as a prompt to check the log, not a verdict.</strong> "Nothing
+            pressed" only means no defensive, immunity, raid CD or health pot was used in the 12s
+            before dying. It does <em>not</em> know whether anything was off cooldown or available,
+            and someone chunked from full health had no chance to react.
+          </p>
           <table>
             <thead>
               <tr>
@@ -418,6 +424,12 @@
       </button>
       @if (isOpen('deaths')) {
         <div class="card-body">
+          <p class="hint disclaimer">
+            <strong>⚠ Read this as a prompt to check the log, not a verdict.</strong> "Without
+            pressing anything" only means no defensive, immunity, raid CD or health pot was used in
+            the 12s before dying. It does <em>not</em> know whether anything was off cooldown or
+            available, and someone chunked from full health had no chance to react.
+          </p>
           <table>
             <thead>
               <tr>
