@@ -550,14 +550,23 @@ function buildDamageEvents(
     const victims = 2 + Math.floor(random() * 7);
     const pool = [...players].sort(() => random() - 0.5).slice(0, victims);
     for (const victim of pool) {
-      damage.push({
-        timestamp: Math.round(cast.timestamp + random() * 2000),
-        sourceID: bossActorId,
-        targetID: victim.id,
-        abilityGameID: cast.abilityGameID,
-        amount: Math.round(150_000 + random() * 550_000),
-        absorbed: random() < 0.3 ? Math.round(random() * 120_000) : 0,
-      });
+      // Real mechanics rarely land as a single tick — most leave a short dot or
+      // pulse a few times. One tick per cast made every death look like a lone
+      // hit out of nowhere, which is exactly what the death timeline is meant
+      // to disprove.
+      const ticks = 1 + Math.floor(random() * 3);
+      const total = 150_000 + random() * 550_000;
+      const first = cast.timestamp + random() * 2000;
+      for (let i = 0; i < ticks; i++) {
+        damage.push({
+          timestamp: Math.round(first + i * (900 + random() * 1600)),
+          sourceID: bossActorId,
+          targetID: victim.id,
+          abilityGameID: cast.abilityGameID,
+          amount: Math.round(total / ticks),
+          absorbed: random() < 0.3 ? Math.round((random() * 120_000) / ticks) : 0,
+        });
+      }
     }
   }
   return damage.sort((a, b) => a.timestamp - b.timestamp);
