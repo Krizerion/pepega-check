@@ -26,7 +26,7 @@ export function npcSourceIds(input: Pick<AnalysisInput, 'actors'>): Set<number> 
  * Whether a damage tick is a boss mechanic landing on a raider.
  *
  * Player self-damage (Fel Armor, trinket runes) and environment effects are
- * excluded. Shared with the coverage review so both agree on what a hit is.
+ * excluded.
  */
 export function isMechanicHit(
   event: DamageEvent,

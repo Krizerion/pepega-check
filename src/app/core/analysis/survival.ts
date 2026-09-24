@@ -5,8 +5,8 @@ import { AnalysisInput, Mitigation, SurvivalCd } from './types';
 
 /**
  * The rules for reasoning about whether a raider was protected at a given
- * moment, shared by the death log and the per-mechanic coverage review so both
- * answer the question the same way.
+ * moment, kept apart from the death log that uses them so the reasoning can be
+ * read and tested on its own.
  */
 
 /** Categories that count as "tried to survive". */
@@ -130,7 +130,7 @@ export function mitigationBefore(
 }
 
 /** Names and icons a spell id for display. */
-export function describeCd(id: number, abilities: ReadonlyMap<number, ReportAbility>): SurvivalCd {
+function describeCd(id: number, abilities: ReadonlyMap<number, ReportAbility>): SurvivalCd {
   const ability = abilities.get(id);
   return { id, name: ability?.name ?? `#${id}`, icon: abilityIconUrl(ability?.icon) };
 }

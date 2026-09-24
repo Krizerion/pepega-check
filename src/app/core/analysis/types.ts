@@ -19,8 +19,6 @@ export interface AnalysisInput {
   dispels: ReadonlyMap<number, DispelEvent[]>;
   /** Stop counting after the Nth death of each fight; null = whole fight. */
   ignoreAfterDeaths: number | null;
-  /** Fight id to its pull number in the encounter; falls back to scope order. */
-  pullNumber?: ReadonlyMap<number, number>;
 }
 
 export interface PlayerHits {
@@ -136,60 +134,6 @@ export interface DamageAggregate {
   byPhase: Map<number, Map<number, Agg>>;
   byAbility: Map<number, Agg>;
   sawTransitions: boolean;
-}
-
-/** One encounter with a mechanic: a cluster of ticks treated as a single decision. */
-export interface CoverageInstance {
-  fightId: number;
-  /** Pull number within the scope, for display. */
-  pull: number;
-  /** Fight-relative ms of the first tick. */
-  atMs: number;
-  damage: number;
-  /** The survival cast credited with covering it, if any. */
-  mitigation: Mitigation | null;
-  /** Cooldowns demonstrably off cooldown at that moment. */
-  ready: SurvivalCd[];
-  /** This instance is what killed the player. */
-  fatal: boolean;
-}
-
-/** How one raider handled one mechanic across the scope. */
-export interface CoverageRow {
-  key: string;
-  abilityId: number;
-  playerId: number;
-  /** Player name, under the shared `name` key so column sorting works. */
-  name: string;
-  color: string;
-  /** Times the mechanic caught this player. */
-  hits: number;
-  covered: number;
-  /** Uncovered hits where a cooldown was demonstrably available. */
-  missed: number;
-  damage: number;
-  deaths: number;
-  /** Share of hits covered, 0-100. */
-  pct: number;
-  /** Cooldowns most often available while uncovered, most frequent first. */
-  suggestions: (SurvivalCd & { times: number })[];
-  instances: CoverageInstance[];
-}
-
-/** One mechanic's coverage across the raid. */
-export interface CoverageGroup {
-  abilityId: number;
-  name: string;
-  icon: string;
-  url: string;
-  /** Instances across every raider. */
-  hits: number;
-  covered: number;
-  /** Share of hits covered, 0-100. */
-  pct: number;
-  damage: number;
-  deaths: number;
-  rows: CoverageRow[];
 }
 
 export interface PhaseKiller {

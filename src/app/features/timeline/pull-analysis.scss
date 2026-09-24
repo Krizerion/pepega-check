@@ -465,109 +465,6 @@ th.sortable {
   white-space: nowrap;
 }
 
-/* ---------- coverage blocks ---------- */
-
-/* One mechanic's review. Its table header does not stick: eight of them in one
-   card would pile up on top of each other at the panel's sticky offset. */
-.mech-block {
-  padding: 4px 0 2px;
-
-  & + .mech-block {
-    border-top: 1px solid var(--border);
-    margin-top: 8px;
-  }
-
-  table.inner th {
-    position: static;
-  }
-}
-
-.mech-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 0 3px;
-  font-size: 12.5px;
-
-  a {
-    font-weight: 600;
-    color: var(--text-0);
-    text-decoration: none;
-    border-bottom: 1px dotted var(--text-2);
-
-    &:hover {
-      color: var(--accent);
-      border-bottom-color: var(--accent);
-    }
-  }
-}
-
-.cover-track {
-  flex: 0 1 140px;
-  height: 6px;
-  margin-left: auto;
-  background: rgba(229, 72, 77, 0.22);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.cover-fill {
-  display: block;
-  height: 100%;
-  background: var(--success);
-  border-radius: 3px;
-}
-
-.mech-stat {
-  font-size: 11px;
-  color: var(--text-2);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-/* ---------- coverage instances ---------- */
-
-.inst {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 2px 0;
-  font-size: 12px;
-  color: var(--text-1);
-
-  &.fatal .inst-when {
-    color: var(--danger);
-  }
-}
-
-.inst-when {
-  flex: 0 0 120px;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-2);
-
-  .ago {
-    margin-right: 4px;
-  }
-}
-
-.inst-ok {
-  color: var(--success);
-}
-
-.inst-bad {
-  color: var(--warn);
-
-  a {
-    border-bottom: none;
-  }
-}
-
-.inst-dmg {
-  margin-left: auto;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-2);
-}
-
 /* ---------- phase breakdown ---------- */
 
 /* Eight columns in a narrow panel: fix the layout so the ability names wrap
@@ -613,9 +510,6 @@ td.killers {
   text-overflow: ellipsis;
 }
 
-/* Small inline spell icons shared by the coverage and phase blocks. */
-.mech-head img,
-.inst img,
 .killer img {
   width: 16px;
   height: 16px;

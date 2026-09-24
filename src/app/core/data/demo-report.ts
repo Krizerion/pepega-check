@@ -567,8 +567,7 @@ function buildDamageEvents(
  * Pins each death to a real hit the player took.
  *
  * Deaths are generated independently of the damage ticks, so without this a
- * demo death names an ability that never actually hit that player — which
- * makes the death log and the per-mechanic coverage review disagree. Warcraft
+ * demo death names an ability that never actually hit that player. Warcraft
  * Logs timestamps a death at its killing blow, so the demo should too.
  */
 function alignDeathsToDamage(deaths: DeathEvent[], damage: DamageEvent[]): void {
