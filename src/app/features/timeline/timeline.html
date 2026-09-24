@@ -7,7 +7,7 @@
   }
 
   <div class="scroll">
-    <div class="grid" [style.width.px]="230 + trackWidth() + 40">
+    <div class="grid" [style.width.px]="labelWidth() + trackWidth() + 40">
       <div class="row header">
         <div
           class="label corner"
@@ -99,26 +99,26 @@
         </div>
       } @empty {
         @if (!loading()) {
-          <p class="no-rows">No data to display — pick a pull from the sidebar.</p>
+          <p class="no-rows">No data to display — pick a pull from the ☰ panel.</p>
         }
       }
 
       @for (line of castLines(); track $index) {
         <div
           class="cast-line"
-          [style.left.px]="230 + line.x"
+          [style.left.px]="labelWidth() + line.x"
           [style.border-color]="line.color"
         ></div>
       }
 
       @if (cutoffMs(); as cutoff) {
-        <div class="cutoff-line" [style.left.px]="230 + x(cutoff)">
+        <div class="cutoff-line" [style.left.px]="labelWidth() + x(cutoff)">
           <span>☠ {{ store.ignoreAfterDeaths() }} deaths</span>
         </div>
       }
 
       @for (phase of phaseMarks(); track phase.id) {
-        <div class="phase-line" [style.left.px]="230 + phase.x">
+        <div class="phase-line" [style.left.px]="labelWidth() + phase.x">
           <span>P{{ phase.id }}</span>
         </div>
       }

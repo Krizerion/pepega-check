@@ -1,18 +1,25 @@
-<header class="topbar">
+<header class="appbar">
   <div class="brand">
     <span class="brand-icon">🐸</span>
     <span class="brand-name">Pepega Check</span>
   </div>
+
   <app-report-form class="report-form" />
-  <button class="settings-btn" (click)="settingsOpen.set(true)" title="Warcraft Logs API settings">
-    ⚙ Settings
+
+  <button
+    class="icon-btn"
+    (click)="shell.settingsOpen.set(true)"
+    title="Warcraft Logs API settings"
+    aria-label="Settings"
+  >
+    ⚙
   </button>
 </header>
 
 @if (store.error(); as err) {
-  <div class="error-banner">
+  <div class="error-banner" role="alert">
     <span>{{ err }}</span>
-    <button class="dismiss" (click)="store.error.set(null)">✕</button>
+    <button class="dismiss" (click)="store.error.set(null)" aria-label="Dismiss error">✕</button>
   </div>
 }
 
@@ -24,17 +31,31 @@
     </div>
   }
   @case ('ready') {
-    <app-encounter-tabs />
-    <div class="layout">
-      <app-sidebar />
-      <main class="content">
-        <app-filter-bar />
-        @if (store.viewMode() === 'pull' && store.showAnalysis()) {
-          <app-pull-analysis />
-        }
+    <app-context-bar />
+
+    <div class="workspace">
+      <app-sidebar class="rail" [class.open]="shell.railOpen()" />
+      @if (shell.railOpen()) {
+        <button
+          class="rail-scrim"
+          (click)="shell.railOpen.set(false)"
+          aria-label="Close panel"
+          tabindex="-1"
+        ></button>
+      }
+
+      <main class="canvas">
         <app-timeline />
       </main>
+
+      @if (store.showAnalysis()) {
+        <app-pull-analysis />
+      }
     </div>
+
+    @if (shell.filtersOpen()) {
+      <app-filter-panel />
+    }
   }
   @default {
     <div class="welcome">
@@ -53,13 +74,13 @@
           and enter its ID + secret in <strong>Settings</strong> (stored only in your browser).
         </li>
         <li>Paste a report URL or code above and hit <strong>Load</strong>.</li>
-        <li>Pick a boss and a pull — or click a raider to compare them across every pull.</li>
+        <li>Pick a boss and a pull, then switch between Timeline, Raider and Analysis.</li>
       </ol>
       <p class="demo-hint">No credentials handy? Try the demo report from the box above.</p>
     </div>
   }
 }
 
-@if (settingsOpen()) {
-  <app-settings-dialog (closed)="settingsOpen.set(false)" />
+@if (shell.settingsOpen()) {
+  <app-settings-dialog (closed)="shell.settingsOpen.set(false)" />
 }

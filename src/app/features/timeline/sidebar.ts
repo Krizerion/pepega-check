@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { classColor } from '../../core/data/wow';
 import { PlayerInfo, PlayerRole, fightDuration, formatOffset } from '../../core/models/wcl';
 import { ReportStore } from '../../core/state/report-store';
+import { ShellState } from '../shell/shell-state';
 
 const ROLE_ORDER: { role: PlayerRole; label: string; icon: string }[] = [
   { role: 'tank', label: 'Tanks', icon: '🛡️' },
@@ -15,6 +16,11 @@ const ROLE_ORDER: { role: PlayerRole; label: string; icon: string }[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <aside class="sidebar">
+      <header class="rail-head">
+        <span class="rail-title">Pulls &amp; raiders</span>
+        <button class="x" (click)="shell.railOpen.set(false)" aria-label="Hide panel">✕</button>
+      </header>
+
       <section class="pulls">
         <h3>Pulls <span class="hint">— untick to exclude</span></h3>
         @for (pull of store.selectedEncounter()?.pulls ?? []; track pull.id; let i = $index) {
@@ -68,15 +74,80 @@ const ROLE_ORDER: { role: PlayerRole; label: string; icon: string }[] = [
     </aside>
   `,
   styles: `
+    :host {
+      flex: 0 0 var(--rail-w);
+      min-height: 0;
+    }
+
     .sidebar {
-      flex: 0 0 235px;
+      height: 100%;
+      width: var(--rail-w);
       overflow-y: auto;
       border-right: 1px solid var(--border);
       background: var(--bg-1);
-      padding: 12px 10px 20px;
+      padding: 0 9px 20px;
       display: flex;
       flex-direction: column;
-      gap: 18px;
+      gap: 16px;
+    }
+
+    .rail-head {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      margin: 0 -9px;
+      padding: 9px 12px;
+      background: var(--bg-1);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .rail-title {
+      flex: 1;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-2);
+    }
+
+    .x {
+      background: none;
+      border: none;
+      padding: 2px 6px;
+      color: var(--text-2);
+    }
+
+    .pulls {
+      padding-top: 12px;
+    }
+
+    /* Only an overlay needs a close button. */
+    @media (max-width: 1080px) {
+      .rail-head {
+        display: flex;
+      }
+
+      .pulls {
+        padding-top: 0;
+      }
+    }
+
+    @media (max-width: 720px) {
+      :host {
+        flex-basis: min(300px, 86vw);
+      }
+
+      .sidebar {
+        width: min(300px, 86vw);
+      }
+
+      .pull,
+      .player {
+        padding: 8px;
+      }
     }
 
     h3 {
@@ -184,6 +255,7 @@ const ROLE_ORDER: { role: PlayerRole; label: string; icon: string }[] = [
 })
 export class Sidebar {
   protected readonly store = inject(ReportStore);
+  protected readonly shell = inject(ShellState);
 
   protected readonly roster = computed(() => {
     const players = this.store.players();
@@ -224,11 +296,26 @@ export class Sidebar {
     return classColor(player.className);
   }
 
+  /**
+   * Picking from the rail is a navigation, so it returns to the timeline: with
+   * the analysis panel open over the canvas, a silent selection change behind
+   * it reads as a dead click.
+   */
   protected selectPull(id: number): void {
     void this.store.selectPull(id);
+    this.store.showPullView();
+    this.closeOnPhone();
   }
 
   protected selectPlayer(id: number): void {
     void this.store.selectPlayer(id);
+    this.closeOnPhone();
+  }
+
+  /** The rail is an overlay on narrow screens; leaving it open hides the result. */
+  private closeOnPhone(): void {
+    if (globalThis.matchMedia?.('(max-width: 1080px)').matches) {
+      this.shell.railOpen.set(false);
+    }
   }
 }

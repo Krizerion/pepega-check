@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 
 import { classifyAbility, CATEGORY_META } from '../../core/data/ability-catalog';
 import { abilityIconUrl, classColor } from '../../core/data/wow';
@@ -56,6 +63,11 @@ const ROLE_META: Record<string, { label: string; icon: string; color: string }> 
   healer: { label: 'Healers', icon: '💚', color: '#46a758' },
   dps: { label: 'DPS', icon: '⚔️', color: '#e5484d' },
 };
+/** Keep in sync with `--label-w` in styles.scss. */
+const LABEL_W = 230;
+const NARROW_LABEL_W = 116;
+const NARROW_QUERY = '(max-width: 720px)';
+
 const BOSS_COLOR = '#b17ae8';
 const DEATH_COLOR = '#e5484d';
 
@@ -81,10 +93,32 @@ export class Timeline {
   protected readonly store = inject(ReportStore);
   protected readonly tip = signal<Tooltip | null>(null);
 
+  /**
+   * Width of the row-label column, mirroring `--label-w`. Overlay positions
+   * (cast lines, phase marks) are absolute pixels, so the value has to exist in
+   * TypeScript as well as CSS — a narrow phone column that only CSS knew about
+   * would leave every line drawn in the wrong place.
+   */
+  protected readonly labelWidth = signal(LABEL_W);
+
   protected readonly loading = computed(() => {
     const pending = this.store.loadingFights();
     return this.store.fightsInView().some((f) => pending.has(f.id));
   });
+
+  constructor() {
+    // Resolved here rather than at module scope: a test or server render has no
+    // window, and a module-level query would throw before the class exists.
+    const media = globalThis.matchMedia?.(NARROW_QUERY);
+    if (!media) {
+      return;
+    }
+    this.labelWidth.set(media.matches ? NARROW_LABEL_W : LABEL_W);
+    const onChange = (event: MediaQueryListEvent) =>
+      this.labelWidth.set(event.matches ? NARROW_LABEL_W : LABEL_W);
+    media.addEventListener('change', onChange);
+    inject(DestroyRef).onDestroy(() => media.removeEventListener('change', onChange));
+  }
 
   protected readonly durationMs = computed(() => {
     const fights = this.store.fightsInView();

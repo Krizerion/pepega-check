@@ -19,6 +19,25 @@
   --label-w: 230px;
   --radius: 8px;
   --shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+
+  /* Chrome sizing. Kept small on purpose: the data is the point, and every
+     pixel here is a pixel the timeline does not get. */
+  --bar-h: 44px;
+  --rail-w: 224px;
+}
+
+/*
+ * Breakpoints used throughout the app:
+ *   <  720px  phone   — rail becomes a drawer, controls stack, tables scroll
+ *   <  1080px tablet  — rail collapses, secondary table columns hide
+ *   >= 1080px desktop — full layout
+ */
+
+@media (max-width: 720px) {
+  :root {
+    --label-w: 116px;
+    --row-h: 32px;
+  }
 }
 
 * {
@@ -94,6 +113,23 @@ select {
   &::placeholder {
     color: var(--text-2);
   }
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 ::-webkit-scrollbar {

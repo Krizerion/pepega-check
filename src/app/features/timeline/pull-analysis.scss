@@ -640,3 +640,85 @@ td a {
     border-bottom-color: var(--accent);
   }
 }
+
+/* ---------- responsive ---------- */
+
+/*
+ * Phone: the panel becomes the whole screen, and each table scrolls inside its
+ * own card rather than stretching the page. Wide tables are unavoidable here —
+ * this is a lot of numbers — so the goal is that nothing breaks and nothing is
+ * hidden, not that it all fits at once.
+ *
+ * A horizontal scroll container can't keep `position: sticky` headers (once one
+ * axis is not visible, the other resolves to auto), so on phones the header
+ * scrolls with the table. That is the right trade at this width.
+ */
+@media (max-width: 720px) {
+  :host,
+  :host(.wide) {
+    width: 100%;
+  }
+
+  .panel {
+    border-left: none;
+    padding-bottom: max(28px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .head {
+    padding: 10px 12px 8px;
+  }
+
+  .toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+
+  .spacer {
+    display: none;
+  }
+
+  .card {
+    margin: 12px 10px 0;
+  }
+
+  .card-body {
+    padding: 4px 10px 12px;
+    overflow-x: auto;
+  }
+
+  th {
+    position: static;
+  }
+
+  .summary {
+    margin: 12px 10px 0;
+    padding: 10px 12px 10px 26px;
+  }
+
+  .loading {
+    margin: 12px 12px 0;
+  }
+
+  /* Detail rows are the one place a phone can win: stack them instead of
+     holding a three-column shape nobody can read at this width. */
+  .bar-row {
+    flex-wrap: wrap;
+  }
+
+  .bar-name {
+    flex-basis: 100%;
+  }
+
+  .inst-when {
+    flex-basis: auto;
+  }
+}
+
+/* Tablet: drop the widest optional column rather than scroll the whole table. */
+@media (max-width: 1080px) {
+  table.phases th:nth-child(7),
+  table.phases td:nth-child(7) {
+    display: none;
+  }
+}

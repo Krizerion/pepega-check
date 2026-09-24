@@ -327,3 +327,19 @@
     color: var(--text-2);
   }
 }
+
+/* Phone: the label column is half as wide, so the spec sublabel has to go —
+   a readable name matters far more than knowing it is a Vengeance DH. */
+@media (max-width: 720px) {
+  .label .l2 {
+    display: none;
+  }
+
+  .label {
+    padding-right: 6px;
+  }
+
+  .row-icon {
+    margin-right: 4px;
+  }
+}
