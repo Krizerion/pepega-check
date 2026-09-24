@@ -7,6 +7,7 @@ import {
   DispelEvent,
   FightEvents,
   FightPerformance,
+  HealEvent,
   PlayerInfo,
   Report,
   ReportFight,
@@ -38,13 +39,18 @@ export class ReportDataStore {
 
   readonly performanceByFight = signal<ReadonlyMap<number, FightPerformance>>(new Map());
 
+  /** Loaded per pull on demand: healing is the chattiest stream in a log. */
+  readonly healingByFight = signal<ReadonlyMap<number, HealEvent[]>>(new Map());
+
   private readonly inflightEvents = new Map<number, Promise<void>>();
   private readonly inflightDamage = new Map<number, Promise<void>>();
   private readonly inflightPerformance = new Map<number, Promise<void>>();
+  private readonly inflightHealing = new Map<number, Promise<void>>();
 
   private demoEvents: Map<number, FightEvents> | null = null;
   private demoDamage: Map<number, DamageEvent[]> | null = null;
   private demoDispels: Map<number, DispelEvent[]> | null = null;
+  private demoHealing: Map<number, HealEvent[]> | null = null;
   private readonly playerDetailsCache = new Map<string, PlayerInfo[]>();
 
   eventsFor(fightId: number): FightEvents | null {
@@ -65,6 +71,7 @@ export class ReportDataStore {
         this.demoEvents = demo.eventsByFight;
         this.demoDamage = demo.damageByFight;
         this.demoDispels = demo.dispelsByFight;
+        this.demoHealing = demo.healingByFight;
       } else {
         const report = await this.api.fetchReport(code);
         if (report.fights.length === 0) {
@@ -103,6 +110,12 @@ export class ReportDataStore {
   async ensureDamage(fightId: number): Promise<void> {
     await this.once(this.inflightDamage, fightId, this.damageByFight().has(fightId), () =>
       this.fetchDamage(fightId),
+    );
+  }
+
+  async ensureHealing(fightId: number): Promise<void> {
+    await this.once(this.inflightHealing, fightId, this.healingByFight().has(fightId), () =>
+      this.fetchHealing(fightId),
     );
   }
 
@@ -191,6 +204,21 @@ export class ReportDataStore {
     }
   }
 
+  private async fetchHealing(fightId: number): Promise<void> {
+    const target = this.fightFor(fightId);
+    if (!target) {
+      return;
+    }
+    const { report, fight } = target;
+    try {
+      const healing =
+        this.demoHealing?.get(fightId) ?? (await this.api.fetchHealing(report.code, fight));
+      this.healingByFight.update((map) => new Map(map).set(fightId, healing));
+    } catch (e) {
+      this.error.set(e instanceof Error ? e.message : 'Failed to load healing events.');
+    }
+  }
+
   private async fetchPerformance(fightId: number): Promise<void> {
     const target = this.fightFor(fightId);
     if (!target) {
@@ -215,13 +243,16 @@ export class ReportDataStore {
     this.damageByFight.set(new Map());
     this.dispelsByFight.set(new Map());
     this.performanceByFight.set(new Map());
+    this.healingByFight.set(new Map());
     this.inflightEvents.clear();
     this.inflightDamage.clear();
     this.inflightPerformance.clear();
+    this.inflightHealing.clear();
     this.playerDetailsCache.clear();
     this.demoEvents = null;
     this.demoDamage = null;
     this.demoDispels = null;
+    this.demoHealing = null;
   }
 
   fail(message: string): void {

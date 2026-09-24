@@ -4,6 +4,7 @@ import {
   DeathEvent,
   DispelEvent,
   FightEvents,
+  HealEvent,
   FightPerformance,
   PlayerInfo,
   PlayerRole,
@@ -384,7 +385,12 @@ export interface DemoData {
   eventsByFight: Map<number, FightEvents>;
   damageByFight: Map<number, DamageEvent[]>;
   dispelsByFight: Map<number, DispelEvent[]>;
+  healingByFight: Map<number, HealEvent[]>;
 }
+
+/** Real healing spell ids, so the demo's heal events link somewhere sensible. */
+const DEMO_HEAL_ID = 77472;
+const DEMO_HOT_ID = 139;
 
 /** The (real) debuff the demo's healers cleanse. */
 const DEMO_DEBUFF_ID = 1284471;
@@ -424,6 +430,7 @@ export function buildDemoReport(): DemoData {
   const eventsByFight = new Map<number, FightEvents>();
   const damageByFight = new Map<number, DamageEvent[]>();
   const dispelsByFight = new Map<number, DispelEvent[]>();
+  const healingByFight = new Map<number, HealEvent[]>();
   let clock = 10 * 60_000;
 
   PULLS.forEach((pull, index) => {
@@ -450,8 +457,11 @@ export function buildDemoReport(): DemoData {
     const fightEvents = buildFightEvents(random, players, bossActorId, startTime, endTime, isKill);
     const damageEvents = buildDamageEvents(id, players, bossActorId, fightEvents);
     alignDeathsToDamage(fightEvents.deaths, damageEvents);
+    const healEvents = buildHealEvents(id, players, startTime, endTime);
+    simulateHealth(players, damageEvents, healEvents, fightEvents.deaths, random);
     eventsByFight.set(id, fightEvents);
     damageByFight.set(id, damageEvents);
+    healingByFight.set(id, healEvents);
     dispelsByFight.set(id, buildDispelEvents(id, players, startTime, endTime));
   });
 
@@ -475,10 +485,114 @@ export function buildDemoReport(): DemoData {
     abilities,
   };
 
-  return { report, players, eventsByFight, damageByFight, dispelsByFight };
+  return { report, players, eventsByFight, damageByFight, dispelsByFight, healingByFight };
 }
 
 /** Synthetic dispels: the demo's dispel-capable healers cleanse a poison debuff. */
+/** Roughly what a raider of this role has in Midnight-era gear. */
+function maxHealth(role: string): number {
+  return role === 'tank' ? 4_500_000 : 2_600_000;
+}
+
+/** Steady healing onto the raid, so a death window has something to consolidate. */
+function buildHealEvents(
+  fightId: number,
+  players: PlayerInfo[],
+  startTime: number,
+  endTime: number,
+): HealEvent[] {
+  const random = mulberry32(0xbeef + fightId);
+  const healers = players.filter((p) => p.role === 'healer');
+  const heals: HealEvent[] = [];
+  if (healers.length === 0) {
+    return heals;
+  }
+
+  for (const target of players) {
+    // Tanks get attention constantly; everyone else between mechanics. Most of
+    // it is HoT ticks of a few thousand, as in a real log — which is exactly
+    // why the death log folds runs of them together.
+    const period = target.role === 'tank' ? 700 : 1500;
+    let at = startTime + random() * period;
+    while (at < endTime) {
+      const healer = healers[Math.floor(random() * healers.length)];
+      const big = random() < 0.12;
+      heals.push({
+        timestamp: Math.round(at),
+        sourceID: healer.id,
+        targetID: target.id,
+        abilityGameID: big ? DEMO_HEAL_ID : DEMO_HOT_ID,
+        amount: big
+          ? Math.round(180_000 + random() * 420_000)
+          : Math.round(1_000 + random() * 28_000),
+        overheal: random() < 0.35 ? Math.round(random() * 40_000) : 0,
+      });
+      at += period * (0.5 + random() * 0.9);
+    }
+  }
+  return heals.sort((a, b) => a.timestamp - b.timestamp);
+}
+
+/**
+ * Walks each raider's damage and healing in order to fill in `hitPoints`, the
+ * field Warcraft Logs carries on every such event. Without it the death log
+ * cannot say what someone was sitting at when a mechanic landed.
+ */
+function simulateHealth(
+  players: PlayerInfo[],
+  damage: DamageEvent[],
+  healing: HealEvent[],
+  deaths: DeathEvent[],
+  random: () => number,
+): void {
+  const fatal = new Set(deaths.map((d) => `${d.targetID}:${d.timestamp}`));
+  const byPlayer = new Map<number, { at: number; hit?: DamageEvent; heal?: HealEvent }[]>();
+
+  const push = (id: number, entry: { at: number; hit?: DamageEvent; heal?: HealEvent }) => {
+    const bucket = byPlayer.get(id);
+    if (bucket) {
+      bucket.push(entry);
+    } else {
+      byPlayer.set(id, [entry]);
+    }
+  };
+  for (const hit of damage) {
+    push(hit.targetID, { at: hit.timestamp, hit });
+  }
+  for (const heal of healing) {
+    push(heal.targetID, { at: heal.timestamp, heal });
+  }
+
+  for (const player of players) {
+    const max = maxHealth(player.role);
+    const timeline = (byPlayer.get(player.id) ?? []).sort((a, b) => a.at - b.at);
+    let hp = max;
+
+    for (const entry of timeline) {
+      if (entry.hit) {
+        if (fatal.has(`${player.id}:${entry.hit.timestamp}`)) {
+          // Make the blow genuinely lethal: it has to cover the health that was
+          // left, plus the overkill, or the log reads as a 180k hit killing
+          // someone who was at 94%.
+          const overkill = Math.round(hp * (0.05 + random() * 0.35));
+          entry.hit.amount = hp + overkill;
+          entry.hit.overkill = overkill;
+          hp = 0;
+        } else {
+          // Never bottom out on a non-fatal hit: 0 hp while alive reads as a bug.
+          hp = Math.max(Math.round(max * 0.05), hp - entry.hit.amount);
+        }
+        entry.hit.hitPoints = hp;
+        entry.hit.maxHitPoints = max;
+      } else if (entry.heal) {
+        hp = hp === 0 ? 0 : Math.min(max, hp + entry.heal.amount);
+        entry.heal.hitPoints = hp;
+        entry.heal.maxHitPoints = max;
+      }
+    }
+  }
+}
+
 function buildDispelEvents(
   fightId: number,
   players: PlayerInfo[],

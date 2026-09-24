@@ -2,6 +2,7 @@ import {
   DamageEvent,
   DispelEvent,
   FightEvents,
+  HealEvent,
   PlayerInfo,
   ReportAbility,
   ReportActor,
@@ -17,6 +18,8 @@ export interface AnalysisInput {
   events: ReadonlyMap<number, FightEvents>;
   damage: ReadonlyMap<number, DamageEvent[]>;
   dispels: ReadonlyMap<number, DispelEvent[]>;
+  /** Only loaded for the pull whose death log is open. */
+  healing?: ReadonlyMap<number, HealEvent[]>;
   /** Stop counting after the Nth death of each fight; null = whole fight. */
   ignoreAfterDeaths: number | null;
 }
@@ -92,19 +95,78 @@ export interface SurvivalCd {
 export interface DeathMoment {
   /** How long before the death, in ms. */
   beforeMs: number;
-  kind: 'damage' | 'cast';
+  kind: 'damage' | 'heal' | 'cast';
   abilityId: number;
   name: string;
   icon: string;
   url: string | null;
-  /** Damage only. */
+  /** Damage and heal amounts. */
   amount: number;
   /** Damage only: the blow that finished them. */
   fatal: boolean;
+  /** Damage only: how far past zero the killing blow went. */
+  overkill: number;
+  /** Damage only: the part a shield ate, so a 0-damage hit can say why. */
+  absorbed: number;
   /** Cast only: the catalog colour of its category. */
   color: string | null;
+  /** Who healed, for heal moments. */
+  sourceName: string | null;
+  /**
+   * Health either side of the event, as a percentage. Null when the log did not
+   * carry a health snapshot for it.
+   */
+  hpBefore: number | null;
+  hpAfter: number | null;
   /** Position across the window, 0-100. */
   pct: number;
+  /** Stagger level for markers that would otherwise sit on top of each other. */
+  lane: number;
+}
+
+/** One healer's contribution to a run of heals, by ability. */
+export interface DeathHealEntry {
+  healer: string;
+  color: string;
+  abilityId: number;
+  abilityName: string;
+  icon: string;
+  url: string | null;
+  amount: number;
+  casts: number;
+}
+
+/**
+ * A run of consecutive heals, folded into one line.
+ *
+ * A real log puts dozens of HoT ticks into a 12-second window; listed one per
+ * row they bury the handful of events that actually explain the death.
+ */
+export interface DeathHealGroup {
+  /** Unique within the death, for expansion state. */
+  key: string;
+  /** Window covered, in ms before the death (from is the larger number). */
+  fromMs: number;
+  toMs: number;
+  amount: number;
+  casts: number;
+  hpBefore: number | null;
+  hpAfter: number | null;
+  entries: DeathHealEntry[];
+}
+
+/** A line in the expanded sequence: one event, or a folded run of heals. */
+export type DeathStep =
+  | { kind: 'event'; moment: DeathMoment; group?: undefined }
+  | { kind: 'heals'; group: DeathHealGroup; moment?: undefined };
+
+/** Healing one player put into the dying raider during the window. */
+export interface DeathHealer {
+  name: string;
+  color: string;
+  amount: number;
+  overheal: number;
+  casts: number;
 }
 
 export interface DeathRow {
@@ -120,8 +182,20 @@ export interface DeathRow {
   available: SurvivalCd[];
   /** Everything that hit them, and everything they pressed, before dying. */
   timeline: DeathMoment[];
+  /** The same sequence for reading, with runs of heals folded together. */
+  steps: DeathStep[];
   /** Total damage taken across the window. */
   damageTaken: number;
+  /**
+   * Health readings across the window as {x, y} percentages, for the trace on
+   * the row. Empty when the log carried no health snapshots.
+   */
+  hpTrace: { x: number; y: number }[];
+  /** Health when the window opened, or null if unknown. */
+  hpStart: number | null;
+  /** Who was healing them, consolidated — one line per healer, not per tick. */
+  healers: DeathHealer[];
+  healingReceived: number;
 }
 
 export interface LeaderboardRow {

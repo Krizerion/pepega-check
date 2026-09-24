@@ -95,6 +95,29 @@ export interface DamageEvent {
   abilityGameID: number;
   amount: number;
   absorbed?: number | null;
+  /**
+   * The target's health *after* the hit, and their maximum. Warcraft Logs
+   * carries these on damage and healing events, which is the only way to know
+   * what someone was sitting at when a mechanic landed.
+   */
+  hitPoints?: number | null;
+  maxHitPoints?: number | null;
+  /** Damage past zero — a big overkill means they were chunked, not ground down. */
+  overkill?: number | null;
+}
+
+/** A heal landing on a friendly player. */
+export interface HealEvent {
+  timestamp: number;
+  /** The healer. */
+  sourceID: number | null;
+  targetID: number;
+  abilityGameID: number;
+  /** Effective healing; `overheal` is the part that was wasted. */
+  amount: number;
+  overheal?: number | null;
+  hitPoints?: number | null;
+  maxHitPoints?: number | null;
 }
 
 /** Per-player totals for one fight, from the WCL summary tables. */

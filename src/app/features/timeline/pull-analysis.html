@@ -541,109 +541,273 @@
       @if (isOpen('deaths')) {
         <div class="card-body">
           <p class="hint disclaimer">
-            <strong>⚠ Read this as a prompt to check the log, not a verdict.</strong> Each row is
-            the 12 seconds before the death: every boss ability that hit the raider, and everything
-            they pressed. Healing is not shown, so a death can look survivable when nobody was
-            healing it. <em>Had ready</em> lists survival cooldowns the player used earlier tonight
-            that were off cooldown at the time — it ignores talents that shorten cooldowns and
-            cannot tell whether someone was chunked from full with no chance to react.
+            <strong>⚠ A prompt to check the log, not a verdict.</strong> Healing is consolidated per
+            healer, not per tick, and the app cannot tell whether someone was chunked from full with
+            no chance to react.
           </p>
-          <table class="deaths">
-            <thead>
-              <tr>
-                <th class="chev-col"></th>
-                <th>Time</th>
-                <th>Player</th>
-                <th class="story-col">Last 12 seconds before dying</th>
-                <th class="num">Taken</th>
-                <th>Had ready</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (death of deathRows(); track $index) {
-                <tr class="expandable" (click)="toggleExpanded('death:' + $index)">
-                  <td class="chev-col">
-                    <span class="chev" [class.open]="expanded().has('death:' + $index)">▸</span>
-                  </td>
-                  <td class="time">{{ format(death.timeMs) }}</td>
-                  <td>
-                    <span class="name" [style.color]="death.playerColor">{{
-                      death.playerName
-                    }}</span>
-                  </td>
-                  <td class="story-col">
-                    <div class="story">
-                      <span class="story-axis"></span>
-                      @for (moment of death.timeline; track $index) {
-                        <span
-                          class="moment"
-                          [class.hit]="moment.kind === 'damage'"
-                          [class.press]="moment.kind === 'cast'"
-                          [class.fatal]="moment.fatal"
-                          [style.left.%]="moment.pct"
-                          [style.border-color]="moment.color"
-                          [title]="momentTitle(moment)"
+          @if (!healingLoaded()) {
+            <p class="loading inline">
+              <span class="mini-spinner"></span> Loading healing for this pull…
+            </p>
+          }
+
+          @for (death of deathRows(); track $index) {
+            <article class="dcard" [class.open]="expanded().has('death:' + $index)">
+              <button class="dhead" (click)="toggleExpanded('death:' + $index)">
+                <span class="chev" [class.open]="expanded().has('death:' + $index)">▸</span>
+                <span class="dtime">{{ format(death.timeMs) }}</span>
+                <span class="dwho" [style.color]="death.playerColor">{{ death.playerName }}</span>
+                <span class="dkiller">
+                  <img [src]="death.abilityIcon" (error)="onIconError($event)" alt="" />
+                  {{ death.abilityName }}
+                </span>
+                <span class="dstats">
+                  <span class="dstat hurt" title="Damage taken in the window"
+                    >−{{ fmt(death.damageTaken) }}</span
+                  >
+                  <span class="dstat healed" title="Healing received in the window"
+                    >+{{ fmt(death.healingReceived) }}</span
+                  >
+                </span>
+              </button>
+
+              <div class="dtrack">
+                <div class="axis">
+                  <span>−12s</span><span>−9s</span><span>−6s</span><span>−3s</span
+                  ><span class="axis-end">death</span>
+                </div>
+
+                <div class="plot">
+                  @if (death.hpTrace.length > 0) {
+                    <svg class="hp" viewBox="0 0 100 100" preserveAspectRatio="none">
+                      <polyline
+                        class="hp-fill"
+                        [attr.points]="traceArea(death)"
+                        vector-effect="non-scaling-stroke"
+                      />
+                      <polyline
+                        class="hp-line"
+                        [attr.points]="tracePoints(death)"
+                        vector-effect="non-scaling-stroke"
+                      />
+                    </svg>
+                    @if (death.hpStart !== null) {
+                      <span class="hp-start" [style.color]="hpColor(death.hpStart)">
+                        {{ death.hpStart }}%
+                      </span>
+                    }
+                  }
+
+                  @for (moment of death.timeline; track $index) {
+                    <span
+                      class="moment"
+                      [class.hit]="moment.kind === 'damage'"
+                      [class.press]="moment.kind === 'cast'"
+                      [class.heal]="moment.kind === 'heal'"
+                      [class.fatal]="moment.fatal"
+                      [style.left.%]="moment.pct"
+                      [style.--lane]="moment.lane"
+                      [style.border-color]="moment.color"
+                      [title]="momentTitle(moment)"
+                    >
+                      @if (moment.kind === 'heal') {
+                        <i></i>
+                      } @else {
+                        <img [src]="moment.icon" (error)="onIconError($event)" alt="" />
+                      }
+                    </span>
+                  } @empty {
+                    <span class="story-empty">Nothing hit them in these 12 seconds.</span>
+                  }
+                </div>
+
+                <div class="legend">
+                  <span class="lg press">▲ pressed</span>
+                  <span class="lg hit">■ hit</span>
+                  <span class="lg heal">● heal</span>
+                  @if (death.available.length > 0) {
+                    <span class="lg ready">
+                      had ready:
+                      @for (cd of death.available; track cd.id) {
+                        <a
+                          appWowhead
+                          [href]="'https://www.wowhead.com/spell=' + cd.id"
+                          target="_blank"
+                          rel="noreferrer"
+                          [attr.aria-label]="cd.name + ' was off cooldown'"
                         >
-                          <img [src]="moment.icon" (error)="onIconError($event)" alt="" />
+                          <img [src]="cd.icon" (error)="onIconError($event)" alt="" />
+                        </a>
+                      }
+                    </span>
+                  }
+                </div>
+              </div>
+
+              @if (expanded().has('death:' + $index)) {
+                <div class="ddetail">
+                  <div class="steps">
+                    @for (step of death.steps; track $index) {
+                      @if (step.kind === 'heals' && step.group; as group) {
+                        <button
+                          class="step heal-run"
+                          [class.open]="expanded().has(group.key)"
+                          (click)="toggleExpanded(group.key)"
+                        >
+                          <span class="step-at">−{{ seconds(group.fromMs) }}s</span>
+                          <span class="step-icon run-chev" [class.open]="expanded().has(group.key)"
+                            >▸</span
+                          >
+                          <span class="step-name">
+                            healing · {{ group.casts }} ticks to −{{ seconds(group.toMs) }}s
+                          </span>
+                          <span class="step-amount">
+                            <span class="healed">+{{ fmt(group.amount) }}</span>
+                          </span>
+                          <span class="step-hp">
+                            @if (group.hpBefore !== null && group.hpAfter !== null) {
+                              <span [style.color]="hpColor(group.hpBefore)"
+                                >{{ group.hpBefore }}%</span
+                              >
+                              <span class="arrow">→</span>
+                              <span class="after" [style.color]="hpColor(group.hpAfter)"
+                                >{{ group.hpAfter }}%</span
+                              >
+                            }
+                          </span>
+                          <span class="step-note run-who">
+                            @for (entry of group.entries.slice(0, 3); track entry.abilityId) {
+                              <span class="who" [style.color]="entry.color">{{
+                                entry.healer
+                              }}</span>
+                            }
+                            @if (group.entries.length > 3) {
+                              <span class="ago">+{{ group.entries.length - 3 }}</span>
+                            }
+                          </span>
+                        </button>
+
+                        @if (expanded().has(group.key)) {
+                          <div class="run-detail">
+                            @for (entry of group.entries; track entry.healer + entry.abilityId) {
+                              <span class="run-row">
+                                <img [src]="entry.icon" (error)="onIconError($event)" alt="" />
+                                @if (entry.url) {
+                                  <a
+                                    appWowhead
+                                    [href]="entry.url"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    (click)="$event.stopPropagation()"
+                                    >{{ entry.abilityName }}</a
+                                  >
+                                } @else {
+                                  <span>{{ entry.abilityName }}</span>
+                                }
+                                <span class="run-by" [style.color]="entry.color">{{
+                                  entry.healer
+                                }}</span>
+                                <span class="healed">+{{ fmt(entry.amount) }}</span>
+                                <span class="ago">×{{ entry.casts }}</span>
+                              </span>
+                            }
+                          </div>
+                        }
+                      } @else if (step.moment; as moment) {
+                        <div
+                          class="step"
+                          [class.fatal]="moment.fatal"
+                          [class.is-heal]="moment.kind === 'heal'"
+                        >
+                          <span class="step-at">−{{ seconds(moment.beforeMs) }}s</span>
+                          <img
+                            class="step-icon"
+                            [src]="moment.icon"
+                            (error)="onIconError($event)"
+                            alt=""
+                          />
+                          <span class="step-name">
+                            @if (moment.kind === 'heal') {
+                              <span [style.color]="moment.color">{{
+                                moment.sourceName ?? 'Healer'
+                              }}</span>
+                            } @else if (moment.url) {
+                              <a appWowhead [href]="moment.url" target="_blank" rel="noreferrer">{{
+                                moment.name
+                              }}</a>
+                            } @else {
+                              {{ moment.name }}
+                            }
+                          </span>
+                          <span class="step-amount">
+                            @switch (moment.kind) {
+                              @case ('cast') {
+                                <span class="step-tag" [style.color]="moment.color">pressed</span>
+                              }
+                              @case ('heal') {
+                                <span class="healed">+{{ fmt(moment.amount) }}</span>
+                              }
+                              @default {
+                                @if (moment.amount > 0) {
+                                  <span class="hurt">−{{ fmt(moment.amount) }}</span>
+                                } @else {
+                                  <span class="ago">absorbed</span>
+                                }
+                              }
+                            }
+                          </span>
+                          <span class="step-hp">
+                            @if (moment.hpBefore !== null && moment.hpAfter !== null) {
+                              <span [style.color]="hpColor(moment.hpBefore)"
+                                >{{ moment.hpBefore }}%</span
+                              >
+                              <span class="arrow">→</span>
+                              <span class="after" [style.color]="hpColor(moment.hpAfter)"
+                                >{{ moment.hpAfter }}%</span
+                              >
+                            }
+                          </span>
+                          <span class="step-note">
+                            @if (moment.fatal) {
+                              <span class="none">☠ killing blow</span>
+                              @if (moment.overkill > 0) {
+                                <span class="ago">{{ fmt(moment.overkill) }} overkill</span>
+                              }
+                            }
+                          </span>
+                        </div>
+                      }
+                    } @empty {
+                      <p class="hint">Nothing recorded in the 12s before this death.</p>
+                    }
+                  </div>
+
+                  @if (death.healers.length > 0) {
+                    <div class="healers">
+                      <span class="healers-title">
+                        Healing received · {{ fmt(death.healingReceived) }} from
+                        {{ death.healers.length }}
+                        {{ death.healers.length === 1 ? 'healer' : 'healers' }}
+                      </span>
+                      @for (healer of death.healers; track healer.name) {
+                        <span class="healer">
+                          <span class="healer-name" [style.color]="healer.color">{{
+                            healer.name
+                          }}</span>
+                          <span class="healed">{{ fmt(healer.amount) }}</span>
+                          <span class="ago">×{{ healer.casts }}</span>
                         </span>
-                      } @empty {
-                        <span class="story-empty">nothing hit them in this window</span>
                       }
                     </div>
-                  </td>
-                  <td class="num strong">{{ death.damageTaken ? fmt(death.damageTaken) : '—' }}</td>
-                  <td class="available">
-                    @for (cd of death.available; track cd.id) {
-                      <a
-                        appWowhead
-                        [href]="'https://www.wowhead.com/spell=' + cd.id"
-                        target="_blank"
-                        rel="noreferrer"
-                        (click)="$event.stopPropagation()"
-                        [attr.aria-label]="cd.name + ' was off cooldown'"
-                      >
-                        <img [src]="cd.icon" (error)="onIconError($event)" alt="" />
-                      </a>
-                    } @empty {
-                      <span class="ago">—</span>
-                    }
-                  </td>
-                </tr>
-                @if (expanded().has('death:' + $index)) {
-                  <tr class="detail">
-                    <td></td>
-                    <td colspan="5">
-                      @for (moment of death.timeline; track $index) {
-                        <div class="step" [class.fatal]="moment.fatal">
-                          <span class="step-at">−{{ seconds(moment.beforeMs) }}s</span>
-                          <img [src]="moment.icon" (error)="onIconError($event)" alt="" />
-                          @if (moment.url) {
-                            <a appWowhead [href]="moment.url" target="_blank" rel="noreferrer">{{
-                              moment.name
-                            }}</a>
-                          } @else {
-                            <span>{{ moment.name }}</span>
-                          }
-                          @if (moment.kind === 'cast') {
-                            <span class="step-tag" [style.color]="moment.color">pressed</span>
-                          } @else {
-                            <span class="step-dmg">{{ fmt(moment.amount) }}</span>
-                          }
-                          @if (moment.fatal) {
-                            <span class="none">☠ killing blow</span>
-                          }
-                        </div>
-                      } @empty {
-                        <p class="hint">
-                          No boss damage and nothing pressed in the 12s before this death.
-                        </p>
-                      }
-                    </td>
-                  </tr>
-                }
+                  } @else if (healingLoaded()) {
+                    <p class="hint no-heals">
+                      <strong>No healing landed on them in these 12 seconds.</strong>
+                    </p>
+                  }
+                </div>
               }
-            </tbody>
-          </table>
+            </article>
+          }
         </div>
       }
     </section>

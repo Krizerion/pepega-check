@@ -58,6 +58,7 @@ export class ReportStore {
   readonly damageByFight = this.data.damageByFight;
   readonly dispelsByFight = this.data.dispelsByFight;
   readonly performanceByFight = this.data.performanceByFight;
+  readonly healingByFight = this.data.healingByFight;
 
   eventsFor(fightId: number): FightEvents | null {
     return this.data.eventsFor(fightId);
@@ -69,6 +70,10 @@ export class ReportStore {
 
   ensureDamage(fightId: number): Promise<void> {
     return this.data.ensureDamage(fightId);
+  }
+
+  ensureHealing(fightId: number): Promise<void> {
+    return this.data.ensureHealing(fightId);
   }
 
   ensurePerformance(fightId: number): Promise<void> {

@@ -12,7 +12,12 @@ const death = (over: Partial<DeathRow> = {}): DeathRow => ({
   mitigation: null,
   available: [],
   timeline: [],
+  steps: [],
   damageTaken: 0,
+  hpTrace: [],
+  hpStart: null,
+  healers: [],
+  healingReceived: 0,
   ...over,
 });
 

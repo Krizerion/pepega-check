@@ -6,6 +6,7 @@ import {
   DeathEvent,
   DispelEvent,
   FightEvents,
+  HealEvent,
   FightPerformance,
   PlayerPerformance,
   PlayerInfo,
@@ -212,6 +213,15 @@ export class WclApiService {
     return this.fetchAllEvents<DamageEvent>(code, fight, 'DamageTaken', 'Friendlies');
   }
 
+  /**
+   * Healing landing on players. Only fetched for a pull whose death log is open:
+   * healing is by far the chattiest event stream, so it is not worth pulling for
+   * every pull in an encounter up front.
+   */
+  async fetchHealing(code: string, fight: ReportFight): Promise<HealEvent[]> {
+    return this.fetchAllEvents<HealEvent>(code, fight, 'Healing', 'Friendlies');
+  }
+
   /** Successful dispels by players (failed dispel casts are not included). */
   async fetchDispels(code: string, fight: ReportFight): Promise<DispelEvent[]> {
     return this.fetchAllEvents<DispelEvent>(code, fight, 'Dispels', 'Friendlies');
@@ -325,7 +335,7 @@ export class WclApiService {
   private async fetchAllEvents<T>(
     code: string,
     fight: ReportFight,
-    dataType: 'Casts' | 'Deaths' | 'DamageTaken' | 'Dispels',
+    dataType: 'Casts' | 'Deaths' | 'DamageTaken' | 'Dispels' | 'Healing',
     hostility: 'Friendlies' | 'Enemies',
   ): Promise<T[]> {
     const events: T[] = [];

@@ -17,7 +17,7 @@ import { buildDeathLeaderboard, buildDeathRows } from '../../core/analysis/death
 import { buildSummaryMarkdown } from '../../core/analysis/export';
 import { buildPhaseWipeRows, phaseWipeHeadline } from '../../core/analysis/phases';
 import { SortState, nextSort, sortRows } from '../../core/analysis/sort';
-import { AnalysisInput, DeathMoment } from '../../core/analysis/types';
+import { AnalysisInput, DeathMoment, DeathRow } from '../../core/analysis/types';
 import { buildUtilityRows } from '../../core/analysis/utility';
 import { classColor } from '../../core/data/wow';
 import { ReportFight, fightDuration, formatOffset } from '../../core/models/wcl';
@@ -94,6 +94,21 @@ export class PullAnalysis {
       destroyRef.onDestroy(() => observer.disconnect());
     });
 
+    /**
+     * Healing is the chattiest event stream in a log, and only the per-pull
+     * death log reads it — so it loads for the selected pull alone, never for
+     * every pull in the encounter.
+     */
+    effect(() => {
+      const pull = this.store.selectedPull();
+      const open = this.store.showAnalysis();
+      untracked(() => {
+        if (pull && open) {
+          void this.store.ensureHealing(pull.id);
+        }
+      });
+    });
+
     // Lazily pull damage (and, for the all-pulls tab, cast/death) events.
     effect(() => {
       const fights = this.scopeFights();
@@ -141,6 +156,7 @@ export class PullAnalysis {
       events: this.store.events(),
       damage: this.store.damageByFight(),
       dispels: this.store.dispelsByFight(),
+      healing: this.store.healingByFight(),
       ignoreAfterDeaths: this.store.ignoreAfterDeaths(),
     };
   });
@@ -449,6 +465,11 @@ export class PullAnalysis {
   }
 
   protected fmt(value: number): string {
+    // Belt and braces: a single event with no amount used to poison a total
+    // and render as "NaN" in the UI.
+    if (!Number.isFinite(value)) {
+      return '0';
+    }
     if (value >= 1_000_000) {
       return `${(value / 1_000_000).toFixed(2)}m`;
     }
@@ -474,12 +495,57 @@ export class PullAnalysis {
     return (beforeMs / 1000).toFixed(1);
   }
 
+  /** True once healing for the selected pull has arrived. */
+  protected readonly healingLoaded = computed(() => {
+    const pull = this.store.selectedPull();
+    return pull ? this.store.healingByFight().has(pull.id) : false;
+  });
+
+  /** The health trace as an SVG polyline, in a 100x100 viewBox. */
+  protected tracePoints(row: DeathRow): string {
+    return row.hpTrace.map((point) => `${point.x},${100 - point.y}`).join(' ');
+  }
+
+  /** The same trace closed along the bottom, so it can be filled. */
+  protected traceArea(row: DeathRow): string {
+    if (row.hpTrace.length === 0) {
+      return '';
+    }
+    const first = row.hpTrace[0];
+    const last = row.hpTrace[row.hpTrace.length - 1];
+    return `${first.x},100 ${this.tracePoints(row)} ${last.x},100`;
+  }
+
+  /** Red below a quarter health, amber below half — the colour of the number. */
+  protected hpColor(pct: number | null): string {
+    if (pct === null) {
+      return 'var(--text-2)';
+    }
+    if (pct <= 25) {
+      return 'var(--danger)';
+    }
+    if (pct <= 50) {
+      return 'var(--warn)';
+    }
+    return 'var(--success)';
+  }
+
   protected momentTitle(moment: DeathMoment): string {
     const at = `${this.seconds(moment.beforeMs)}s before death`;
-    return moment.kind === 'cast'
-      ? `${moment.name} — pressed ${at}`
-      : `${moment.name} — ${this.fmt(moment.amount)} damage, ${at}` +
-          (moment.fatal ? ' (killing blow)' : '');
+    const hp =
+      moment.hpBefore !== null && moment.hpAfter !== null
+        ? ` · ${moment.hpBefore}% → ${moment.hpAfter}%`
+        : '';
+    if (moment.kind === 'cast') {
+      return `${moment.name} — pressed ${at}`;
+    }
+    if (moment.kind === 'heal') {
+      return `${moment.sourceName ?? 'Healer'} healed ${this.fmt(moment.amount)} ${at}${hp}`;
+    }
+    return (
+      `${moment.name} — ${this.fmt(moment.amount)} damage, ${at}${hp}` +
+      (moment.fatal ? ' (killing blow)' : '')
+    );
   }
 
   protected onIconError(event: Event): void {

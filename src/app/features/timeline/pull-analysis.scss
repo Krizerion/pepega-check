@@ -641,40 +641,148 @@ td a {
   }
 }
 
-/* ---------- death timelines ---------- */
+/* ---------- death cards ---------- */
 
 /*
- * A 12-second track per death. Position carries the meaning — three hits
- * bunched at the right end reads as "chunked", the same three spread out reads
- * as "ground down" — so the markers are placed by time rather than listed.
+ * One card per death rather than a table row.
+ *
+ * The first version put this strip in a table column: 260px for twelve seconds
+ * and up to ten events, 30px tall. Markers landed on top of each other and the
+ * health line had no room to say anything. A card spans the panel, so the plot
+ * gets roughly three times the width and enough height to read as a graph.
  */
-.story-col {
-  width: 44%;
+.dcard {
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg-0);
+  overflow: hidden;
+
+  &.open {
+    border-color: var(--border-strong);
+  }
 }
 
-.story {
+.dhead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 11px;
+  background: var(--bg-2);
+  border: none;
+  border-radius: 0;
+  text-align: left;
+
+  &:hover {
+    background: var(--bg-3);
+  }
+}
+
+.dtime {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  font-size: 12.5px;
+}
+
+.dwho {
+  font-weight: 700;
+  font-size: 13.5px;
+}
+
+.dkiller {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  color: var(--text-1);
+  font-size: 12.5px;
+
+  img {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    margin: 0;
+  }
+}
+
+.dstats {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ---------- the 12-second plot ---------- */
+
+.dtrack {
+  padding: 6px 11px 8px;
+}
+
+.axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+
+  .axis-end {
+    color: var(--danger);
+  }
+}
+
+.plot {
   position: relative;
-  height: 26px;
-  min-width: 180px;
+  height: 62px;
+  margin-top: 2px;
+  border-bottom: 1px solid var(--border);
+  background-image: linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 25% 100%;
 }
 
-.story-axis {
+.hp {
   position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 2px;
-  border-radius: 1px;
-  /* Fades in towards the death: the right-hand end is the moment of death. */
-  background: linear-gradient(90deg, rgba(229, 72, 77, 0.12), rgba(229, 72, 77, 0.55));
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
 
+.hp-line {
+  fill: none;
+  stroke: var(--success);
+  stroke-width: 2px;
+  stroke-linejoin: round;
+}
+
+.hp-fill {
+  fill: rgba(70, 167, 88, 0.14);
+  stroke: none;
+}
+
+.hp-start {
+  position: absolute;
+  left: 3px;
+  top: 1px;
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Three rows, one per kind: presses along the top, damage through the middle,
+ * heals along the bottom. Within a row, `--lane` nudges anything that would
+ * still collide.
+ */
 .moment {
   position: absolute;
-  top: 50%;
-  width: 20px;
-  height: 20px;
-  margin: -10px 0 0 -10px;
+  width: 21px;
+  height: 21px;
+  margin-left: -10px;
   border-radius: 4px;
   border: 1px solid var(--border-strong);
   background: var(--bg-3);
@@ -688,55 +796,243 @@ td a {
     border-radius: 0;
   }
 
-  &.hit {
-    border-color: rgba(229, 72, 77, 0.75);
+  &.press {
+    top: calc(1px + var(--lane, 0) * 7px);
+    width: 18px;
+    height: 18px;
+    margin-left: -9px;
   }
 
-  /* Pressed abilities sit above the line, damage on it, so the two read apart
-     at a glance even when they overlap in time. */
-  &.press {
-    top: 2px;
-    margin-top: 0;
-    width: 17px;
-    height: 17px;
+  &.hit {
+    top: calc(22px + var(--lane, 0) * 8px);
+    border-color: rgba(229, 72, 77, 0.8);
+  }
+
+  &.heal {
+    bottom: calc(1px + var(--lane, 0) * 5px);
+    width: 7px;
+    height: 7px;
+    margin-left: -3px;
+    border: none;
+    border-radius: 50%;
+    background: var(--success);
   }
 
   &.fatal {
     border-color: var(--danger);
-    box-shadow: 0 0 0 2px rgba(229, 72, 77, 0.35);
+    box-shadow: 0 0 0 2px rgba(229, 72, 77, 0.4);
     z-index: 2;
   }
 }
 
 .story-empty {
-  font-size: 11.5px;
+  position: absolute;
+  top: 22px;
+  left: 6px;
+  font-size: 12px;
   color: var(--text-2);
-  line-height: 26px;
 }
 
-.step {
+.legend {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  padding: 3px 0;
-  font-size: 12.5px;
+  gap: 4px 12px;
+  margin-top: 6px;
+  font-size: 10.5px;
+  color: var(--text-2);
+}
+
+.lg {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  &.press {
+    color: var(--accent);
+  }
+
+  &.hit {
+    color: var(--danger);
+  }
+
+  &.heal {
+    color: var(--success);
+  }
+
+  &.ready {
+    margin-left: auto;
+  }
+
+  a {
+    border: none;
+    line-height: 1;
+  }
 
   img {
-    width: 17px;
-    height: 17px;
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    margin: 0 1px 0 0;
+    vertical-align: middle;
+    opacity: 0.85;
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+}
+
+/* ---------- folded heal runs ---------- */
+
+/* A run of heal ticks collapsed to one line, openable for the breakdown. */
+.heal-run {
+  display: contents;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+
+  > * {
+    padding: 2px 0;
+  }
+
+  &:hover > * {
+    background: var(--bg-2);
+  }
+
+  &.open > * {
+    background: rgba(70, 167, 88, 0.08);
+  }
+}
+
+.run-chev {
+  display: inline-block;
+  font-size: 9px;
+  color: var(--success);
+  transition: transform 0.15s ease;
+
+  &.open {
+    transform: rotate(90deg);
+  }
+}
+
+.run-who {
+  gap: 5px;
+  overflow: hidden;
+
+  .who {
+    font-size: 11px;
+    white-space: nowrap;
+
+    & + .who::before {
+      content: '·';
+      margin-right: 5px;
+      color: var(--text-2);
+    }
+  }
+}
+
+.run-detail {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 1px 0 3px 52px;
+  padding: 5px 8px;
+  border-left: 2px solid rgba(70, 167, 88, 0.45);
+  background: var(--bg-0);
+  border-radius: 0 6px 6px 0;
+}
+
+.run-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+
+  img {
+    width: 15px;
+    height: 15px;
+    border-radius: 3px;
     margin: 0;
   }
 
-  &.fatal {
-    color: var(--text-0);
+  a {
+    color: var(--text-1);
+  }
+
+  .run-by {
+    margin-left: auto;
+    font-weight: 600;
+  }
+
+  .healed {
+    min-width: 62px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
   }
 }
 
+/* ---------- expanded death sequence ---------- */
+
+.ddetail {
+  padding: 2px 11px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-1);
+}
+
+/* A grid so times, names, amounts and health line up down the column. */
+.steps {
+  display: grid;
+  grid-template-columns: 52px 20px minmax(130px, 1fr) 86px 112px auto;
+  align-items: center;
+  gap: 1px 10px;
+  margin: 8px 0 2px;
+  font-size: 12.5px;
+}
+
+.step {
+  display: contents;
+}
+
+.step > * {
+  padding: 2px 0;
+}
+
+.step.fatal > * {
+  background: rgba(229, 72, 77, 0.09);
+}
+
 .step-at {
-  flex: 0 0 52px;
   text-align: right;
   font-variant-numeric: tabular-nums;
   color: var(--text-2);
+}
+
+.step-icon {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+}
+
+.step-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.step-amount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.hurt {
+  color: var(--danger);
+}
+
+.healed {
+  color: var(--success);
 }
 
 .step-tag {
@@ -745,15 +1041,77 @@ td a {
   letter-spacing: 0.05em;
 }
 
-.step-dmg {
-  margin-left: auto;
+.step-hp {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  justify-content: flex-end;
   font-variant-numeric: tabular-nums;
-  color: var(--text-1);
+
+  .arrow {
+    color: var(--text-2);
+  }
+
+  .after {
+    font-weight: 700;
+  }
 }
 
-.step.fatal .step-dmg {
-  color: var(--danger);
+.step-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-size: 11.5px;
+}
+
+.step.is-heal .step-icon {
+  opacity: 0.7;
+}
+
+.healers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: 12.5px;
+}
+
+.healers-title {
+  flex-basis: 100%;
+  font-size: 11px;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-2);
+}
+
+.healer {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.healer-name {
+  font-weight: 600;
+}
+
+.no-heals {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+
+  strong {
+    color: var(--warn);
+  }
+}
+
+.loading.inline {
+  margin: 8px 0 0;
 }
 
 /* ---------- responsive ---------- */
@@ -829,8 +1187,30 @@ td a {
     flex-basis: auto;
   }
 
-  .story-col {
-    width: auto;
+  /* Phone: the sequence drops to two lines per event instead of six columns. */
+  .steps {
+    grid-template-columns: 46px 18px minmax(80px, 1fr) 76px;
+    gap: 1px 6px;
+  }
+
+  .step-hp,
+  .step-note {
+    grid-column: 3 / -1;
+    justify-content: flex-start;
+    font-size: 11.5px;
+  }
+
+  .dhead {
+    flex-wrap: wrap;
+    gap: 4px 8px;
+  }
+
+  .dstats {
+    margin-left: 0;
+  }
+
+  .lg.ready {
+    margin-left: 0;
   }
 
   .step-dmg {

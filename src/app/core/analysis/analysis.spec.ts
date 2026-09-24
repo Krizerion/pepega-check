@@ -2,10 +2,18 @@ import { CastEvent, DamageEvent, DeathEvent, DispelEvent, FightEvents } from '..
 import { buildAvoidableRows, heuristicAvoidable } from './avoidable';
 import { deathCutoff } from './cutoff';
 import { aggregateDamage, buildMechanicGroups, phaseAt } from './damage';
-import { buildDeathLeaderboard, buildDeathRows, buildDeathTimeline } from './deaths';
+import {
+  buildDeathLeaderboard,
+  buildDeathRows,
+  buildDeathSteps,
+  buildDeathTimeline,
+  buildHpTrace,
+  consolidateHealers,
+} from './deaths';
 import { nextSort, sortRows } from './sort';
 import {
   BARKSKIN,
+  BOSS_ID,
   CLEANSE,
   ENV_ID,
   FEL_ARMOR,
@@ -290,6 +298,270 @@ describe('death timelines', () => {
     const eee = rows.find((r) => r.playerName === 'Eee')!;
     // Eee dies at 120s; the only spike on Eee is at 150s, after the death.
     expect(eee.timeline.filter((m) => m.kind === 'damage')).toEqual([]);
+  });
+});
+
+describe('death timelines: health and healing', () => {
+  const MAX = 1_000_000;
+  const healers = new Map([
+    [2, { name: 'Healy', color: '#0ff' }],
+    [4, { name: 'Eee', color: '#f0f' }],
+  ]);
+
+  /** Dee takes two hits, gets healed between them, then is chunked from 80%. */
+  const moments = () =>
+    buildDeathTimeline(
+      death(60_000, 3, SPIKE),
+      { abilities },
+      [],
+      [
+        hit(52_000, 3, SPIKE, 200_000, { hitPoints: 800_000, maxHitPoints: MAX }),
+        hit(56_000, 3, SPIKE, 300_000, { hitPoints: 500_000, maxHitPoints: MAX }),
+        // The killing blow: more damage than health left, the rest is overkill.
+        hit(60_000, 3, SPIKE, 900_000, { hitPoints: 0, maxHitPoints: MAX, overkill: 100_000 }),
+      ],
+      [
+        {
+          timestamp: START + 58_000,
+          sourceID: 2,
+          targetID: 3,
+          abilityGameID: 61295,
+          amount: 300_000,
+          hitPoints: 800_000,
+          maxHitPoints: MAX,
+        },
+        {
+          timestamp: START + 59_000,
+          sourceID: 4,
+          targetID: 3,
+          abilityGameID: 61295,
+          amount: 100_000,
+          hitPoints: 900_000,
+          maxHitPoints: MAX,
+        },
+      ],
+      healers,
+    );
+
+  it('reports health either side of every event', () => {
+    const first = moments()[0];
+    expect(first.hpBefore).toBe(100);
+    expect(first.hpAfter).toBe(80);
+  });
+
+  it('chains health off the previous reading rather than the arithmetic', () => {
+    // The killing blow dealt 900k to someone holding 900k, so
+    // `hitPoints + amount` would claim they were at 90% — they were at 90%
+    // only because the heal put them there, which is what the chain reports.
+    const fatal = moments().find((m) => m.fatal)!;
+    expect(fatal.hpBefore).toBe(90);
+    expect(fatal.hpAfter).toBe(0);
+    expect(fatal.overkill).toBe(100_000);
+  });
+
+  it('names who healed, and keeps heals in the sequence', () => {
+    const heals = moments().filter((m) => m.kind === 'heal');
+    expect(heals.map((m) => m.sourceName)).toEqual(['Healy', 'Eee']);
+    expect(heals[0].amount).toBe(300_000);
+  });
+
+  it('consolidates healing per healer, not per tick', () => {
+    const rows = consolidateHealers([
+      ...moments(),
+      ...buildDeathTimeline(
+        death(60_000, 3, SPIKE),
+        { abilities },
+        [],
+        [],
+        [
+          {
+            timestamp: START + 55_000,
+            sourceID: 2,
+            targetID: 3,
+            abilityGameID: 61295,
+            amount: 50_000,
+          },
+        ],
+        healers,
+      ),
+    ]);
+    // Healy: 300k from the first window plus 50k from the second, over 2 casts.
+    expect(rows[0]).toEqual(expect.objectContaining({ name: 'Healy', amount: 350_000, casts: 2 }));
+    expect(rows[1]).toEqual(expect.objectContaining({ name: 'Eee', amount: 100_000, casts: 1 }));
+  });
+
+  it('builds a health trace that ends at zero', () => {
+    const { trace, start } = buildHpTrace(moments());
+    expect(start).toBe(100);
+    expect(trace[trace.length - 1]).toEqual({ x: 100, y: 0 });
+    expect(trace.every((point) => point.x >= 0 && point.x <= 100)).toBe(true);
+  });
+
+  it('staggers markers that would otherwise be drawn on top of each other', () => {
+    const tight = buildDeathTimeline(
+      death(60_000, 3, SPIKE),
+      { abilities },
+      [],
+      [
+        // Three ticks inside a third of a second: at ~3% of the window each,
+        // they would render as one icon without the stagger.
+        hit(59_000, 3, SPIKE, 100),
+        hit(59_100, 3, SPIKE, 100),
+        hit(59_200, 3, SPIKE, 100),
+        hit(52_000, 3, SPIKE, 100),
+      ],
+    );
+    const lanes = tight.map((m) => m.lane);
+    expect(lanes.slice(1)).toEqual([0, 1, 2]);
+    expect(lanes[0]).toBe(0); // far enough away to sit on the baseline
+  });
+
+  it('lanes each kind independently, so a heal never shifts a hit', () => {
+    const mixed = buildDeathTimeline(
+      death(60_000, 3, SPIKE),
+      { abilities },
+      [],
+      [hit(59_000, 3, SPIKE, 100)],
+      [{ timestamp: START + 59_050, sourceID: 2, targetID: 3, abilityGameID: 61295, amount: 10 }],
+      new Map([[2, { name: 'Healy', color: '#0ff' }]]),
+    );
+    expect(mixed.every((m) => m.lane === 0)).toBe(true);
+  });
+
+  it('leaves health null when the log carried no snapshots', () => {
+    const plain = buildDeathTimeline(
+      death(60_000, 3, SPIKE),
+      { abilities },
+      [],
+      [hit(58_000, 3, SPIKE, 500)],
+    );
+    expect(plain[0].hpBefore).toBeNull();
+    expect(plain[0].hpAfter).toBeNull();
+  });
+
+  it('counts only damage towards the damage taken total', () => {
+    const input = makeInput({
+      healing: new Map([
+        [
+          fight.id,
+          [
+            {
+              timestamp: START + 59_000,
+              sourceID: 2,
+              targetID: 3,
+              abilityGameID: 61295,
+              amount: 400_000,
+            },
+          ],
+        ],
+      ]),
+    });
+    const dee = buildDeathRows(fight, input).find((r) => r.playerName === 'Dee')!;
+    expect(dee.damageTaken).toBe(700); // the 60s spike, not the heal
+    expect(dee.healingReceived).toBe(400_000);
+    expect(dee.healers.map((h) => h.name)).toEqual(['Healy']);
+  });
+});
+
+describe('real-log defensiveness and heal folding', () => {
+  const heal = (at: number, source: number, amount: number | undefined, ability = 61295) => ({
+    timestamp: START + at,
+    sourceID: source,
+    targetID: 3,
+    abilityGameID: ability,
+    amount: amount as number,
+  });
+  const names = new Map([
+    [2, { name: 'Healy', color: '#0ff' }],
+    [4, { name: 'Eee', color: '#f0f' }],
+  ]);
+
+  it('survives events that carry no amount', () => {
+    // Warcraft Logs omits `amount` on some entries; `undefined <= 0` is false,
+    // so one used to slip through and turn every total into NaN.
+    const moments = buildDeathTimeline(
+      death(60_000, 3, SPIKE),
+      { abilities },
+      [],
+      [],
+      [heal(55_000, 2, undefined), heal(56_000, 2, 5_000)],
+      names,
+    );
+    expect(moments).toHaveLength(1);
+    expect(consolidateHealers(moments)[0].amount).toBe(5_000);
+  });
+
+  it('keeps a damage event with no amount from poisoning the total', () => {
+    const input = makeInput({
+      damage: new Map([
+        [
+          fight.id,
+          [
+            {
+              timestamp: START + 59_000,
+              sourceID: BOSS_ID,
+              targetID: 3,
+              abilityGameID: SPIKE,
+              amount: undefined as unknown as number,
+            },
+            hit(59_500, 3, SPIKE, 400),
+          ],
+        ],
+      ]),
+    });
+    const dee = buildDeathRows(fight, input).find((r) => r.playerName === 'Dee')!;
+    expect(Number.isFinite(dee.damageTaken)).toBe(true);
+    expect(dee.damageTaken).toBe(400);
+  });
+
+  it('folds a run of heals into one step', () => {
+    const moments = buildDeathTimeline(
+      death(60_000, 3, SPIKE),
+      { abilities },
+      [],
+      [hit(52_000, 3, SPIKE, 100)],
+      [heal(53_000, 2, 1_000), heal(54_000, 4, 2_000), heal(55_000, 2, 3_000)],
+      names,
+    );
+    const steps = buildDeathSteps(moments);
+    expect(steps.map((s) => s.kind)).toEqual(['event', 'heals']);
+    const group = steps[1].group!;
+    expect(group.casts).toBe(3);
+    expect(group.amount).toBe(6_000);
+    // Grouped by healer and ability, biggest contributor first.
+    expect(group.entries.map((e) => [e.healer, e.amount, e.casts])).toEqual([
+      ['Healy', 4_000, 2],
+      ['Eee', 2_000, 1],
+    ]);
+  });
+
+  it('splits runs around anything that is not a heal', () => {
+    const moments = buildDeathTimeline(
+      death(60_000, 3, SPIKE),
+      { abilities },
+      [],
+      [hit(55_000, 3, SPIKE, 100)],
+      [
+        heal(53_000, 2, 1_000),
+        heal(54_000, 2, 1_000),
+        heal(56_000, 2, 1_000),
+        heal(57_000, 2, 1_000),
+      ],
+      names,
+    );
+    expect(buildDeathSteps(moments).map((s) => s.kind)).toEqual(['heals', 'event', 'heals']);
+  });
+
+  it('leaves a lone heal as its own line rather than a group of one', () => {
+    const moments = buildDeathTimeline(
+      death(60_000, 3, SPIKE),
+      { abilities },
+      [],
+      [hit(55_000, 3, SPIKE, 100)],
+      [heal(54_000, 2, 1_000)],
+      names,
+    );
+    expect(buildDeathSteps(moments).map((s) => s.kind)).toEqual(['event', 'event']);
   });
 });
 
