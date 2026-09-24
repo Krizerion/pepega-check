@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 
-import { CATEGORIES } from '../../core/data/ability-catalog';
 import { ReportFight, difficultyLabel, fightDuration, formatOffset } from '../../core/models/wcl';
 import { ReportStore, groupKey } from '../../core/state/report-store';
 import { ShellState } from './shell-state';
@@ -112,19 +111,6 @@ import { ShellState } from './shell-state';
           </button>
         </div>
       }
-
-      <button
-        class="filters"
-        [class.active]="shell.filtersOpen()"
-        [class.modified]="activeFilters() > 0"
-        (click)="shell.filtersOpen.set(!shell.filtersOpen())"
-        [attr.aria-expanded]="shell.filtersOpen()"
-      >
-        <span class="fi">⚙</span><span class="ft">Filters</span>
-        @if (activeFilters(); as n) {
-          <span class="badge" [title]="n + ' filters differ from the default'">{{ n }}</span>
-        }
-      </button>
     </div>
   `,
   styles: `
@@ -246,38 +232,6 @@ import { ShellState } from './shell-state';
       }
     }
 
-    .filters {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 5px 11px;
-      font-size: 12.5px;
-      white-space: nowrap;
-
-      &.active {
-        border-color: var(--accent);
-        background: var(--accent-soft);
-      }
-
-      /* A filter hiding data is invisible once you scroll away from the
-         controls, so the count is always on screen. */
-      &.modified .badge {
-        background: var(--accent);
-        color: #fff;
-      }
-    }
-
-    .badge {
-      min-width: 17px;
-      padding: 0 4px;
-      border-radius: 9px;
-      background: var(--bg-3);
-      color: var(--text-1);
-      font-size: 11px;
-      font-weight: 700;
-      text-align: center;
-    }
-
     /* The rail goes off-canvas at this width, so its opener has to appear at
        exactly the same breakpoint or there is no way back to it. */
     @media (max-width: 1080px) {
@@ -319,10 +273,6 @@ import { ShellState } from './shell-state';
         order: 2;
       }
 
-      .filters {
-        order: 3;
-      }
-
       .stepper {
         order: 4;
         flex: 1 1 auto;
@@ -349,10 +299,6 @@ import { ShellState } from './shell-state';
       }
 
       .spacer {
-        display: none;
-      }
-
-      .ft {
         display: none;
       }
 
@@ -388,39 +334,6 @@ export class ContextBar {
       return 'analysis';
     }
     return this.store.viewMode() === 'player' ? 'raider' : 'timeline';
-  });
-
-  /**
-   * How many filters are hiding something. Zero means "you are seeing
-   * everything", which is the question the bar needs to answer at a glance.
-   */
-  protected readonly activeFilters = computed(() => {
-    let count = 0;
-    if (this.store.enabledRoles().size < 3) {
-      count++;
-    }
-    if (this.store.enabledCategories().size < CATEGORIES.length) {
-      count++;
-    }
-    if (this.store.disabledAbilityIds().size > 0) {
-      count++;
-    }
-    if (this.store.selectedBossAbilityIds() !== null) {
-      count++;
-    }
-    if (!this.store.showBossAbilities()) {
-      count++;
-    }
-    if (!this.store.showDeaths()) {
-      count++;
-    }
-    if (this.store.ignoreAfterDeaths() !== null) {
-      count++;
-    }
-    if (this.store.excludedPullIds().size > 0) {
-      count++;
-    }
-    return count;
   });
 
   protected pullLabel(pull: ReportFight, index: number): string {

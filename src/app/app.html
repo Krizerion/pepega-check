@@ -32,6 +32,9 @@
   }
   @case ('ready') {
     <app-context-bar />
+    @if (!store.showAnalysis()) {
+      <app-filter-strip />
+    }
 
     <div class="workspace">
       <app-sidebar class="rail" [class.open]="shell.railOpen()" />
@@ -52,10 +55,6 @@
         <app-pull-analysis />
       }
     </div>
-
-    @if (shell.filtersOpen()) {
-      <app-filter-panel />
-    }
   }
   @default {
     <div class="welcome">
