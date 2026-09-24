@@ -1,5 +1,5 @@
 import { abilityIconUrl, classColor } from '../data/wow';
-import { PlayerInfo, ReportFight } from '../models/wcl';
+import { DamageEvent, PlayerInfo, ReportFight } from '../models/wcl';
 import { deathCutoff, isAfterCutoff } from './cutoff';
 import {
   Agg,
@@ -14,6 +14,32 @@ import {
 export const OCCURRENCE_GAP_MS = 1_500;
 
 const emptyAgg = (): Agg => ({ hits: 0, total: 0, byPlayer: new Map(), occurrences: 0 });
+
+/** Enemy actors whose damage counts as a boss mechanic. */
+export function npcSourceIds(input: Pick<AnalysisInput, 'actors'>): Set<number> {
+  return new Set(
+    input.actors.filter((a) => a.type === 'NPC' && a.name !== 'Environment').map((a) => a.id),
+  );
+}
+
+/**
+ * Whether a damage tick is a boss mechanic landing on a raider.
+ *
+ * Player self-damage (Fel Armor, trinket runes) and environment effects are
+ * excluded. Shared with the coverage review so both agree on what a hit is.
+ */
+export function isMechanicHit(
+  event: DamageEvent,
+  players: ReadonlySet<number>,
+  npcSources: ReadonlySet<number>,
+): boolean {
+  return (
+    event.abilityGameID > 1 &&
+    players.has(event.targetID) &&
+    event.sourceID !== null &&
+    npcSources.has(event.sourceID)
+  );
+}
 
 function record(agg: Agg, targetId: number, amount: number): void {
   agg.hits++;
@@ -38,9 +64,6 @@ export function phaseAt(fight: ReportFight, timestamp: number): number {
 /**
  * Single pass over the damage-taken events in scope, aggregated per phase and
  * (phase-independently) per ability.
- *
- * Only damage dealt by NPC enemies counts: player self-damage (Fel Armor,
- * trinket runes) and environment effects are not boss mechanics.
  */
 export function aggregateDamage(input: AnalysisInput, includeAbsorbed: boolean): DamageAggregate {
   const byPhase = new Map<number, Map<number, Agg>>();
@@ -48,9 +71,7 @@ export function aggregateDamage(input: AnalysisInput, includeAbsorbed: boolean):
   let sawTransitions = false;
 
   const players = new Set(input.players.map((p) => p.id));
-  const npcSources = new Set(
-    input.actors.filter((a) => a.type === 'NPC' && a.name !== 'Environment').map((a) => a.id),
-  );
+  const npcSources = npcSourceIds(input);
 
   for (const fight of input.fights) {
     const cutoff = deathCutoff(fight, input.events, input.ignoreAfterDeaths);
@@ -65,10 +86,7 @@ export function aggregateDamage(input: AnalysisInput, includeAbsorbed: boolean):
     const lastHitAt = new Map<number, number>();
 
     for (const event of input.damage.get(fight.id) ?? []) {
-      if (event.abilityGameID <= 1 || !players.has(event.targetID)) {
-        continue;
-      }
-      if (event.sourceID === null || !npcSources.has(event.sourceID)) {
+      if (!isMechanicHit(event, players, npcSources)) {
         continue;
       }
       if (isAfterCutoff(event.timestamp, cutoff)) {

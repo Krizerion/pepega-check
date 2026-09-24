@@ -1,128 +1,39 @@
-import {
-  CastEvent,
-  DamageEvent,
-  DeathEvent,
-  DispelEvent,
-  FightEvents,
-  PlayerInfo,
-  ReportAbility,
-  ReportActor,
-  ReportFight,
-} from '../models/wcl';
+import { CastEvent, DamageEvent, DeathEvent, DispelEvent, FightEvents } from '../models/wcl';
 import { buildAvoidableRows, heuristicAvoidable } from './avoidable';
 import { deathCutoff } from './cutoff';
 import { aggregateDamage, buildMechanicGroups, phaseAt } from './damage';
 import { buildDeathLeaderboard, buildDeathRows } from './deaths';
 import { nextSort, sortRows } from './sort';
+import {
+  BARKSKIN,
+  CLEANSE,
+  ENV_ID,
+  FEL_ARMOR,
+  HEALTHSTONE,
+  RAID_WIDE,
+  SHIELD_WALL,
+  SPIKE,
+  SPIRIT_LINK,
+  START,
+  TANKBUSTER,
+  TEMPERED_POTION,
+  abilities,
+  actors,
+  makeFight,
+  players,
+  pullEvents,
+} from './testing/fixture';
 import { AnalysisInput } from './types';
 import { buildUtilityRows } from './utility';
 
 // --- fixture -------------------------------------------------------------
 
-const BOSS_ID = 100;
-const ENV_ID = -1;
-
-/** Spell ids used by the fixture; the defensive ones exist in the catalog. */
-const SHIELD_WALL = 871; // defensive, 240s cooldown
-const BARKSKIN = 22812; // defensive, 60s cooldown
-const HEALTHSTONE = 6262; // health-pot
-const TEMPERED_POTION = 431932; // combat-pot
-const SPIRIT_LINK = 98008; // raid-cd
-const FEL_ARMOR = 900900; // player self-damage, not a mechanic
-const RAID_WIDE = 500001;
-const SPIKE = 500002;
-const TANKBUSTER = 500003;
-const CLEANSE = 527;
-
-const players: PlayerInfo[] = [
-  { id: 1, name: 'Tanky', className: 'Warrior', spec: 'Protection', role: 'tank' },
-  { id: 2, name: 'Healy', className: 'Shaman', spec: 'Restoration', role: 'healer' },
-  { id: 3, name: 'Dee', className: 'Druid', spec: 'Balance', role: 'dps' },
-  { id: 4, name: 'Eee', className: 'Mage', spec: 'Frost', role: 'dps' },
-];
-
-const actors: ReportActor[] = [
-  { id: BOSS_ID, name: 'Test Boss', type: 'NPC', subType: 'Boss', petOwner: null },
-  { id: ENV_ID, name: 'Environment', type: 'NPC', subType: 'NPC', petOwner: null },
-  ...players.map((p) => ({
-    id: p.id,
-    name: p.name,
-    type: 'Player',
-    subType: p.className,
-    petOwner: null,
-  })),
-];
-
-const abilities = new Map<number, ReportAbility>(
-  (
-    [
-      [SHIELD_WALL, 'Shield Wall'],
-      [BARKSKIN, 'Barkskin'],
-      [HEALTHSTONE, 'Healthstone'],
-      [TEMPERED_POTION, 'Tempered Potion'],
-      [SPIRIT_LINK, 'Spirit Link Totem'],
-      [FEL_ARMOR, 'Fel Armor'],
-      [RAID_WIDE, 'Raid Wide Nuke'],
-      [SPIKE, 'Floor Spike'],
-      [TANKBUSTER, 'Big Smack'],
-      [CLEANSE, 'Purify'],
-    ] as const
-  ).map(([id, name]) => [id, { gameID: id, name, icon: `${name}.jpg`, type: null }]),
-);
-
-const START = 1_000_000;
-
-const fight: ReportFight = {
-  id: 1,
-  name: 'Test Boss',
-  encounterID: 1,
-  difficulty: 5,
-  kill: false,
-  startTime: START,
-  endTime: START + 300_000,
-  fightPercentage: 20,
-  lastPhase: 2,
-  size: players.length,
-  phaseTransitions: [
-    { id: 1, startTime: START },
-    { id: 2, startTime: START + 100_000 },
-  ],
-};
-
-const cast = (at: number, sourceID: number, abilityGameID: number): CastEvent => ({
-  timestamp: START + at,
-  type: 'cast',
-  sourceID,
-  targetID: BOSS_ID,
-  abilityGameID,
-});
-
-const hit = (
-  at: number,
-  targetID: number,
-  abilityGameID: number,
-  amount: number,
-  extra: Partial<DamageEvent> = {},
-): DamageEvent => ({
-  timestamp: START + at,
-  sourceID: BOSS_ID,
-  targetID,
-  abilityGameID,
-  amount,
-  ...extra,
-});
-
-const death = (at: number, targetID: number, abilityGameID: number): DeathEvent => ({
-  timestamp: START + at,
-  targetID,
-  abilityGameID,
-  killingAbilityGameID: abilityGameID,
-  killerID: BOSS_ID,
-});
+const fight = makeFight();
+const { cast, hit, death } = pullEvents(START);
 
 const friendlyCasts: CastEvent[] = [
-  cast(5_000, 1, SHIELD_WALL), // tank, 240s CD → still down at 60s
-  cast(10_000, 3, BARKSKIN), // druid, 60s CD → ready again by 80s
+  cast(5_000, 1, SHIELD_WALL), // tank, 240s CD -> still down at 60s
+  cast(10_000, 3, BARKSKIN), // druid, 60s CD -> ready again by 80s
   cast(20_000, 2, SPIRIT_LINK),
   cast(30_000, 4, TEMPERED_POTION),
   cast(40_000, 4, HEALTHSTONE),
@@ -130,24 +41,24 @@ const friendlyCasts: CastEvent[] = [
 ];
 
 const deaths: DeathEvent[] = [
-  death(60_000, 3, SPIKE), // Dee: Barkskin used 50s ago (60s CD) → NOT ready
+  death(60_000, 3, SPIKE), // Dee: Barkskin used 50s ago (60s CD) -> NOT ready
   death(120_000, 4, RAID_WIDE), // Eee: never used a tracked defensive
-  death(260_000, 1, TANKBUSTER), // Tanky: Shield Wall used 255s ago (240s CD) → ready
+  death(260_000, 1, TANKBUSTER), // Tanky: Shield Wall used 255s ago (240s CD) -> ready
 ];
 
 const events: FightEvents = { friendlyCasts, enemyCasts: [], deaths };
 
 const damage: DamageEvent[] = [
-  // Raid-wide: one cast hitting everyone → not avoidable.
+  // Raid-wide: one cast hitting everyone -> not avoidable.
   hit(11_000, 1, RAID_WIDE, 1000),
   hit(11_050, 2, RAID_WIDE, 1000),
   hit(11_100, 3, RAID_WIDE, 1000),
   hit(11_150, 4, RAID_WIDE, 1000),
-  // Floor spike: repeated single-target ticks, different people → avoidable.
+  // Floor spike: repeated single-target ticks, different people -> avoidable.
   hit(20_000, 3, SPIKE, 500, { absorbed: 100 }),
   hit(60_000, 3, SPIKE, 700),
   hit(150_000, 4, SPIKE, 900),
-  // Tankbuster: only ever the tank → excluded as a tankbuster.
+  // Tankbuster: only ever the tank -> excluded as a tankbuster.
   hit(30_000, 1, TANKBUSTER, 5000),
   hit(90_000, 1, TANKBUSTER, 5000),
   // Player self-damage and environment damage must be ignored entirely.
