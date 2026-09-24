@@ -30,6 +30,16 @@ describe('buildDemoReport', () => {
     );
   });
 
+  it('provides dispels performed by healers', () => {
+    const dispels = demo.dispelsByFight.get(1) ?? [];
+    expect(dispels.length).toBeGreaterThan(0);
+    const healerIds = new Set(demo.players.filter((p) => p.role === 'healer').map((p) => p.id));
+    for (const dispel of dispels) {
+      expect(healerIds.has(dispel.sourceID)).toBe(true);
+      expect(demo.report.abilities.get(dispel.abilityGameID)).toBeDefined();
+    }
+  });
+
   it('names every ability referenced by events', () => {
     const events = demo.eventsByFight.get(1)!;
     for (const cast of [...events.friendlyCasts, ...events.enemyCasts]) {

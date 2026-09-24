@@ -37,6 +37,15 @@
         deaths
       </label>
 
+      <label class="ignore" title="Count damage soaked by shields towards mechanic totals">
+        <input
+          type="checkbox"
+          [checked]="includeAbsorbed()"
+          (change)="includeAbsorbed.set(!includeAbsorbed())"
+        />
+        include absorbed
+      </label>
+
       <span class="spacer"></span>
 
       <button class="ghost" (click)="toggleAllSections()">
@@ -66,6 +75,14 @@
       </button>
       @if (isOpen('performance')) {
         <div class="card-body">
+          @if (performanceIgnoresCutoff()) {
+            <p class="hint disclaimer">
+              <strong>⚠ These totals cover the whole pull.</strong> Damage and healing come from
+              Warcraft Logs' summary tables, so the "ignore after
+              {{ store.ignoreAfterDeaths() }} deaths" cutoff does not apply here — every other
+              section below does respect it.
+            </p>
+          }
           <table>
             <thead>
               <tr>
@@ -336,6 +353,13 @@
                 <th class="num sortable" (click)="sortBy(consumSort, 'healthPots')">
                   Health pots &amp; stones{{ arrow(consumSort(), 'healthPots') }}
                 </th>
+                <th
+                  class="num sortable"
+                  title="Successful dispels — failed dispel casts are not counted"
+                  (click)="sortBy(consumSort, 'dispels')"
+                >
+                  Dispels{{ arrow(consumSort(), 'dispels') }}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -346,6 +370,7 @@
                   </td>
                   <td class="num" [class.none]="row.combatPots === 0">{{ row.combatPots }}</td>
                   <td class="num">{{ row.healthPots }}</td>
+                  <td class="num">{{ row.dispels || '—' }}</td>
                 </tr>
               }
             </tbody>
@@ -366,9 +391,11 @@
         <div class="card-body">
           <p class="hint disclaimer">
             <strong>⚠ Read this as a prompt to check the log, not a verdict.</strong> "Nothing
-            pressed" only means no defensive, immunity, raid CD or health pot was used in the 12s
-            before dying. It does <em>not</em> know whether anything was off cooldown or available,
-            and someone chunked from full health had no chance to react.
+            pressed" means no defensive, immunity, raid CD or health pot in the 12s before dying.
+            "Had available" lists survival cooldowns the player used earlier in the night (so we
+            know they have them) that were off cooldown at the time — it only covers spells with a
+            known base cooldown, ignores talents that shorten them, and cannot tell whether someone
+            was chunked from full health with no chance to react.
           </p>
           <table>
             <thead>
@@ -377,6 +404,7 @@
                 <th>Player</th>
                 <th>Killed by</th>
                 <th>Last defensive / health pot before death</th>
+                <th>Had available</th>
               </tr>
             </thead>
             <tbody>
@@ -404,6 +432,18 @@
                       {{ m.name }} <span class="ago">{{ m.secondsBefore }}s before</span>
                     } @else {
                       <span class="none">— nothing pressed</span>
+                    }
+                  </td>
+                  <td class="available">
+                    @for (cd of death.available; track cd.id) {
+                      <img
+                        [src]="cd.icon"
+                        [title]="cd.name + ' was off cooldown'"
+                        (error)="onIconError($event)"
+                        alt=""
+                      />
+                    } @empty {
+                      <span class="ago">—</span>
                     }
                   </td>
                 </tr>

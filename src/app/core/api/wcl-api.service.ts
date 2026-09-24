@@ -4,6 +4,7 @@ import {
   CastEvent,
   DamageEvent,
   DeathEvent,
+  DispelEvent,
   FightEvents,
   FightPerformance,
   PlayerPerformance,
@@ -211,6 +212,11 @@ export class WclApiService {
     return this.fetchAllEvents<DamageEvent>(code, fight, 'DamageTaken', 'Friendlies');
   }
 
+  /** Successful dispels by players (failed dispel casts are not included). */
+  async fetchDispels(code: string, fight: ReportFight): Promise<DispelEvent[]> {
+    return this.fetchAllEvents<DispelEvent>(code, fight, 'Dispels', 'Friendlies');
+  }
+
   /** Per-player damage/healing totals, plus WCL parses for kills. */
   async fetchPerformance(code: string, fight: ReportFight): Promise<FightPerformance> {
     const [damage, healing] = await Promise.all([
@@ -319,7 +325,7 @@ export class WclApiService {
   private async fetchAllEvents<T>(
     code: string,
     fight: ReportFight,
-    dataType: 'Casts' | 'Deaths' | 'DamageTaken',
+    dataType: 'Casts' | 'Deaths' | 'DamageTaken' | 'Dispels',
     hostility: 'Friendlies' | 'Enemies',
   ): Promise<T[]> {
     const events: T[] = [];

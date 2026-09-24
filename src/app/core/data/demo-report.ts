@@ -2,6 +2,7 @@ import {
   CastEvent,
   DamageEvent,
   DeathEvent,
+  DispelEvent,
   FightEvents,
   FightPerformance,
   PlayerInfo,
@@ -382,7 +383,19 @@ export interface DemoData {
   players: PlayerInfo[];
   eventsByFight: Map<number, FightEvents>;
   damageByFight: Map<number, DamageEvent[]>;
+  dispelsByFight: Map<number, DispelEvent[]>;
 }
+
+/** The (real) debuff the demo's healers cleanse. */
+const DEMO_DEBUFF_ID = 1284471;
+
+/** Dispel spells the demo healers use, with the debuff they remove. */
+const DEMO_DISPELS: { className: string; spellId: number; name: string; icon: string }[] = [
+  { className: 'Priest', spellId: 527, name: 'Purify', icon: 'spell_holy_dispelmagic.jpg' },
+  { className: 'Shaman', spellId: 77130, name: 'Purify Spirit', icon: 'spell_nature_purge.jpg' },
+  { className: 'Druid', spellId: 88423, name: "Nature's Cure", icon: 'ability_druid_nourish.jpg' },
+  { className: 'Paladin', spellId: 4987, name: 'Cleanse', icon: 'spell_holy_renew.jpg' },
+];
 
 export function buildDemoReport(): DemoData {
   const random = mulberry32(0x5eed);
@@ -396,15 +409,21 @@ export function buildDemoReport(): DemoData {
   }));
 
   const abilities = new Map<number, ReportAbility>(
-    [...PLAYER_SPELLS, ...BOSS_SPELLS].map((s) => [
-      s.id,
-      { gameID: s.id, name: s.name, icon: s.icon, type: null },
-    ]),
+    [...PLAYER_SPELLS, ...BOSS_SPELLS, ...DEMO_DISPELS.map((d) => ({ ...d, id: d.spellId }))].map(
+      (s) => [s.id, { gameID: s.id, name: s.name, icon: s.icon, type: null }],
+    ),
   );
+  abilities.set(DEMO_DEBUFF_ID, {
+    gameID: DEMO_DEBUFF_ID,
+    name: 'Bloodvenom',
+    icon: 'ability_creature_poison_02.jpg',
+    type: null,
+  });
 
   const fights: ReportFight[] = [];
   const eventsByFight = new Map<number, FightEvents>();
   const damageByFight = new Map<number, DamageEvent[]>();
+  const dispelsByFight = new Map<number, DispelEvent[]>();
   let clock = 10 * 60_000;
 
   PULLS.forEach((pull, index) => {
@@ -431,6 +450,7 @@ export function buildDemoReport(): DemoData {
     const fightEvents = buildFightEvents(random, players, bossActorId, startTime, endTime, isKill);
     eventsByFight.set(id, fightEvents);
     damageByFight.set(id, buildDamageEvents(id, players, bossActorId, fightEvents));
+    dispelsByFight.set(id, buildDispelEvents(id, players, startTime, endTime));
   });
 
   const report: Report = {
@@ -453,7 +473,36 @@ export function buildDemoReport(): DemoData {
     abilities,
   };
 
-  return { report, players, eventsByFight, damageByFight };
+  return { report, players, eventsByFight, damageByFight, dispelsByFight };
+}
+
+/** Synthetic dispels: the demo's dispel-capable healers cleanse a poison debuff. */
+function buildDispelEvents(
+  fightId: number,
+  players: PlayerInfo[],
+  startTime: number,
+  endTime: number,
+): DispelEvent[] {
+  const random = mulberry32(0xd15e1 + fightId);
+  const dispellers = players.filter(
+    (p) => p.role === 'healer' && DEMO_DISPELS.some((d) => d.className === p.className),
+  );
+  const events: DispelEvent[] = [];
+  for (const player of dispellers) {
+    const spell = DEMO_DISPELS.find((d) => d.className === player.className)!;
+    const count = 2 + Math.floor(random() * 6);
+    for (let i = 0; i < count; i++) {
+      events.push({
+        timestamp: Math.round(startTime + random() * (endTime - startTime)),
+        sourceID: player.id,
+        targetID: players[Math.floor(random() * players.length)].id,
+        abilityGameID: spell.spellId,
+        extraAbilityGameID: DEMO_DEBUFF_ID,
+        isBuff: false,
+      });
+    }
+  }
+  return events.sort((a, b) => a.timestamp - b.timestamp);
 }
 
 /** Synthetic per-player damage/healing totals + parses for the demo report. */

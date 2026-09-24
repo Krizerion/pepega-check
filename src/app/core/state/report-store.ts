@@ -10,6 +10,7 @@ import {
 import { DEMO_REPORT_CODE, buildDemoPerformance, buildDemoReport } from '../data/demo-report';
 import {
   DamageEvent,
+  DispelEvent,
   EncounterGroup,
   FightEvents,
   FightPerformance,
@@ -40,12 +41,14 @@ export class ReportStore {
   readonly loadingFights = signal<ReadonlySet<number>>(new Set());
   private readonly inflight = new Map<number, Promise<void>>();
   readonly damageByFight = signal<ReadonlyMap<number, DamageEvent[]>>(new Map());
+  readonly dispelsByFight = signal<ReadonlyMap<number, DispelEvent[]>>(new Map());
   readonly loadingDamage = signal<ReadonlySet<number>>(new Set());
   private readonly inflightDamage = new Map<number, Promise<void>>();
   readonly performanceByFight = signal<ReadonlyMap<number, FightPerformance>>(new Map());
   private readonly inflightPerformance = new Map<number, Promise<void>>();
   private demoEvents: Map<number, FightEvents> | null = null;
   private demoDamage: Map<number, DamageEvent[]> | null = null;
+  private demoDispels: Map<number, DispelEvent[]> | null = null;
   private playerDetailsCache = new Map<string, PlayerInfo[]>();
 
   // --- selection ---
@@ -255,12 +258,14 @@ export class ReportStore {
     this.eventsByFight.set(new Map());
     this.inflight.clear();
     this.damageByFight.set(new Map());
+    this.dispelsByFight.set(new Map());
     this.inflightDamage.clear();
     this.performanceByFight.set(new Map());
     this.inflightPerformance.clear();
     this.playerDetailsCache.clear();
     this.demoEvents = null;
     this.demoDamage = null;
+    this.demoDispels = null;
 
     try {
       if (code === DEMO_REPORT_CODE) {
@@ -269,6 +274,7 @@ export class ReportStore {
         this.players.set(demo.players);
         this.demoEvents = demo.eventsByFight;
         this.demoDamage = demo.damageByFight;
+        this.demoDispels = demo.dispelsByFight;
       } else {
         const report = await this.api.fetchReport(code);
         if (report.fights.length === 0) {
@@ -462,9 +468,15 @@ export class ReportStore {
     }
     this.loadingDamage.update((set) => new Set(set).add(fightId));
     try {
-      const damage =
-        this.demoDamage?.get(fightId) ?? (await this.api.fetchDamageTaken(report.code, fight));
+      const isDemo = report.code === DEMO_REPORT_CODE;
+      const [damage, dispels] = await Promise.all([
+        this.demoDamage?.get(fightId) ?? this.api.fetchDamageTaken(report.code, fight),
+        isDemo
+          ? Promise.resolve(this.demoDispels?.get(fightId) ?? [])
+          : this.api.fetchDispels(report.code, fight),
+      ]);
       this.damageByFight.update((map) => new Map(map).set(fightId, damage));
+      this.dispelsByFight.update((map) => new Map(map).set(fightId, dispels));
     } catch (e) {
       this.error.set(e instanceof Error ? e.message : 'Failed to load damage events.');
     } finally {

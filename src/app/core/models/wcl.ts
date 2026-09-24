@@ -111,6 +111,20 @@ export interface FightPerformance {
   parses: Record<string, number> | null;
 }
 
+/** A successful dispel performed by a player. */
+export interface DispelEvent {
+  timestamp: number;
+  /** The dispeller. */
+  sourceID: number;
+  targetID: number;
+  /** The dispel spell used. */
+  abilityGameID: number;
+  /** The aura that was removed. */
+  extraAbilityGameID?: number | null;
+  /** True when a buff was purged rather than a debuff cleansed. */
+  isBuff?: boolean | null;
+}
+
 /** All events fetched for a single fight (pull). */
 export interface FightEvents {
   friendlyCasts: CastEvent[];

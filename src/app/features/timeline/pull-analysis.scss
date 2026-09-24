@@ -283,6 +283,22 @@ h3 {
   line-height: 1.5;
 }
 
+td.available {
+  white-space: nowrap;
+  line-height: 1;
+
+  img {
+    margin-right: 2px;
+    opacity: 0.85;
+  }
+}
+
+.ignore input[type='checkbox'] {
+  accent-color: var(--accent);
+  cursor: pointer;
+  margin: 0;
+}
+
 .disclaimer {
   padding: 7px 10px;
   background: rgba(245, 165, 36, 0.08);

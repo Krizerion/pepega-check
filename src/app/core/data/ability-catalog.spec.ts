@@ -1,4 +1,26 @@
-import { classifyAbility } from './ability-catalog';
+import { ABILITY_COOLDOWNS, CATEGORIES, classifyAbility } from './ability-catalog';
+
+describe('ABILITY_COOLDOWNS', () => {
+  it('only lists plausible cooldowns', () => {
+    for (const [id, seconds] of Object.entries(ABILITY_COOLDOWNS)) {
+      expect(seconds, `spell ${id}`).toBeGreaterThan(0);
+      expect(seconds, `spell ${id}`).toBeLessThanOrEqual(900);
+    }
+  });
+
+  it('covers the defensives most likely to be questioned after a death', () => {
+    // A sample across roles; the table is deliberately partial but these
+    // are the ones a raid leader will ask about first.
+    for (const id of [871, 642, 48792, 108271, 22812, 45438, 198589, 363916]) {
+      expect(ABILITY_COOLDOWNS[id], `spell ${id}`).toBeDefined();
+    }
+  });
+
+  it('exposes Raid CDs as a category', () => {
+    expect(CATEGORIES.map((c) => c.id)).toContain('raid-cd');
+    expect(CATEGORIES.find((c) => c.id === 'raid-cd')?.label).toBe('Raid CDs');
+  });
+});
 
 describe('classifyAbility', () => {
   it('classifies well-known spell IDs', () => {

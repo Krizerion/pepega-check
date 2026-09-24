@@ -11,7 +11,7 @@ import {
   untracked,
 } from '@angular/core';
 
-import { classifyAbility } from '../../core/data/ability-catalog';
+import { ABILITY_COOLDOWNS, classifyAbility } from '../../core/data/ability-catalog';
 import { abilityIconUrl, classColor } from '../../core/data/wow';
 import {
   DeathEvent,
@@ -49,6 +49,16 @@ interface DeathRow {
   abilityIcon: string;
   abilityUrl: string | null;
   mitigation: { name: string; icon: string; secondsBefore: number } | null;
+  /** Survival abilities known to be off cooldown when the player died. */
+  available: { id: number; name: string; icon: string }[];
+}
+
+interface ConsumableRow {
+  name: string;
+  color: string;
+  combatPots: number;
+  healthPots: number;
+  dispels: number;
 }
 
 interface PlayerHits {
@@ -86,13 +96,6 @@ interface LeaderboardRow {
   color: string;
   deaths: number;
   unmitigated: number;
-}
-
-interface ConsumableRow {
-  name: string;
-  color: string;
-  combatPots: number;
-  healthPots: number;
 }
 
 interface PerformanceRow {
@@ -178,6 +181,13 @@ export class PullAnalysis {
 
   /** Panel stretched to near full width. */
   protected readonly wide = signal(false);
+
+  /**
+   * Count absorbed damage towards mechanic totals. Off by default: absorbs
+   * inflate "avoidable damage" for shielded players even though the hit was
+   * soaked rather than taken.
+   */
+  protected readonly includeAbsorbed = signal(false);
 
   // Per-table sort states.
   protected readonly perfSort = signal<SortState>({ key: 'damage', dir: -1 });
@@ -322,6 +332,7 @@ export class PullAnalysis {
     }
 
     const damage = this.store.damageByFight();
+    const absorbed = this.includeAbsorbed();
     const players = new Map(this.store.players().map((p) => [p.id, p]));
     // Only true enemy mechanics: damage sourced by NPCs, not player self-damage
     // (Fel Armor, Burning Rush, trinkets…) or environment effects.
@@ -369,7 +380,7 @@ export class PullAnalysis {
         if (cutoff !== null && event.timestamp > cutoff) {
           continue;
         }
-        const amount = event.amount + (event.absorbed ?? 0);
+        const amount = event.amount + (absorbed ? (event.absorbed ?? 0) : 0);
 
         const phase = phaseOf(event.timestamp);
         let abilities = byPhase.get(phase);
@@ -658,6 +669,15 @@ export class PullAnalysis {
 
   protected readonly hasParses = computed(() => this.performance().some((r) => r.parse !== null));
 
+  /**
+   * True when a death cutoff is set but cannot apply to the performance totals:
+   * those come from Warcraft Logs' summary tables, which always cover the whole
+   * fight. Every other section in this panel honours the cutoff.
+   */
+  protected readonly performanceIgnoresCutoff = computed(
+    () => this.store.ignoreAfterDeaths() !== null,
+  );
+
   /** WCL-style parse colors. */
   protected parseColor(parse: number): string {
     if (parse >= 100) return '#e5cc80';
@@ -676,7 +696,9 @@ export class PullAnalysis {
       return [];
     }
     const events = this.store.events();
-    const counts = new Map<number, { combatPots: number; healthPots: number }>();
+    const dispelEvents = this.store.dispelsByFight();
+    const counts = new Map<number, { combatPots: number; healthPots: number; dispels: number }>();
+    const blank = () => ({ combatPots: 0, healthPots: 0, dispels: 0 });
 
     for (const fight of this.scopeFights()) {
       const cutoff = this.cutoffFor(fight);
@@ -689,13 +711,23 @@ export class PullAnalysis {
         if (category !== 'combat-pot' && category !== 'health-pot') {
           continue;
         }
-        const row = counts.get(cast.sourceID) ?? { combatPots: 0, healthPots: 0 };
+        const row = counts.get(cast.sourceID) ?? blank();
         if (category === 'combat-pot') {
           row.combatPots++;
         } else {
           row.healthPots++;
         }
         counts.set(cast.sourceID, row);
+      }
+
+      // Successful dispels only — failed dispel casts never produce these events.
+      for (const dispel of dispelEvents.get(fight.id) ?? []) {
+        if (cutoff !== null && dispel.timestamp > cutoff) {
+          continue;
+        }
+        const row = counts.get(dispel.sourceID) ?? blank();
+        row.dispels++;
+        counts.set(dispel.sourceID, row);
       }
     }
 
@@ -712,6 +744,7 @@ export class PullAnalysis {
         color: classColor(player.className),
         combatPots: counts.get(player.id)?.combatPots ?? 0,
         healthPots: counts.get(player.id)?.healthPots ?? 0,
+        dispels: counts.get(player.id)?.dispels ?? 0,
       }));
   });
 
@@ -862,8 +895,59 @@ export class PullAnalysis {
               ? `https://www.wowhead.com/spell=${abilityId}`
               : null,
           mitigation: this.findMitigation(death, fight),
+          available: this.findAvailable(death, fight),
         };
       });
+  }
+
+  /**
+   * Survival abilities the player demonstrably had off cooldown when they died:
+   * something they used at some point during this encounter (so we know they
+   * have it) whose last cast before the death was longer ago than its cooldown.
+   * Only spells with a known cooldown are considered.
+   */
+  private findAvailable(death: DeathEvent, fight: ReportFight): DeathRow['available'] {
+    const report = this.store.report();
+    const events = this.store.events();
+    if (!report) {
+      return [];
+    }
+
+    // Everything this player pressed across the included pulls tells us their kit.
+    const known = new Set<number>();
+    for (const pull of this.store.includedPulls()) {
+      for (const cast of events.get(pull.id)?.friendlyCasts ?? []) {
+        if (cast.sourceID === death.targetID && ABILITY_COOLDOWNS[cast.abilityGameID]) {
+          known.add(cast.abilityGameID);
+        }
+      }
+    }
+    if (known.size === 0) {
+      return [];
+    }
+
+    // Last use of each before the death, within this pull.
+    const lastUse = new Map<number, number>();
+    for (const cast of events.get(fight.id)?.friendlyCasts ?? []) {
+      if (cast.sourceID === death.targetID && cast.timestamp <= death.timestamp) {
+        lastUse.set(cast.abilityGameID, cast.timestamp);
+      }
+    }
+
+    const available: DeathRow['available'] = [];
+    for (const id of known) {
+      const last = lastUse.get(id);
+      const readyAt = last === undefined ? fight.startTime : last + ABILITY_COOLDOWNS[id] * 1000;
+      if (readyAt <= death.timestamp) {
+        const ability = report.abilities.get(id);
+        available.push({
+          id,
+          name: ability?.name ?? `#${id}`,
+          icon: abilityIconUrl(ability?.icon),
+        });
+      }
+    }
+    return available.sort((a, b) => a.name.localeCompare(b.name));
   }
 
   /** Last survival attempt by the dying player shortly before their death. */

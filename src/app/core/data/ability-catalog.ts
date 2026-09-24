@@ -320,3 +320,90 @@ export function classifyAbility(spellId: number, name: string | null): AbilityCa
 }
 
 export const CATEGORY_META = new Map(CATEGORIES.map((c) => [c.id, c]));
+
+/**
+ * Base cooldowns in seconds for survival abilities, used to judge what a player
+ * still had available when they died.
+ *
+ * Deliberately incomplete and deliberately conservative: only spells whose base
+ * cooldown is well known are listed, and talents that *shorten* a cooldown are
+ * ignored. Both choices bias towards under-reporting ("we won't claim it was
+ * ready unless it certainly was"), because the cost of wrongly telling someone
+ * they sat on a defensive is much higher than missing one.
+ */
+export const ABILITY_COOLDOWNS: Record<number, number> = {
+  // Warrior
+  871: 240, // Shield Wall
+  12975: 180, // Last Stand
+  118038: 180, // Die by the Sword
+  23920: 25, // Spell Reflection
+  97462: 180, // Rallying Cry
+  // Paladin
+  642: 300, // Divine Shield
+  633: 600, // Lay on Hands
+  1022: 300, // Blessing of Protection
+  31850: 120, // Ardent Defender
+  86659: 300, // Guardian of Ancient Kings
+  184662: 120, // Shield of Vengeance
+  31821: 180, // Aura Mastery
+  // Hunter
+  186265: 180, // Aspect of the Turtle
+  109304: 120, // Exhilaration
+  264735: 180, // Survival of the Fittest
+  // Rogue
+  31224: 120, // Cloak of Shadows
+  5277: 120, // Evasion
+  185311: 30, // Crimson Vial
+  1856: 120, // Vanish
+  // Priest
+  47585: 120, // Dispersion
+  19236: 90, // Desperate Prayer
+  62618: 180, // Power Word: Barrier
+  33206: 180, // Pain Suppression
+  47788: 240, // Guardian Spirit
+  64843: 180, // Divine Hymn
+  // Death Knight
+  48792: 180, // Icebound Fortitude
+  48707: 60, // Anti-Magic Shell
+  51052: 120, // Anti-Magic Zone
+  55233: 90, // Vampiric Blood
+  49028: 120, // Dancing Rune Weapon
+  48743: 120, // Death Pact
+  // Shaman
+  108271: 120, // Astral Shift
+  98008: 180, // Spirit Link Totem
+  108280: 180, // Healing Tide Totem
+  108281: 120, // Ancestral Guidance
+  207399: 300, // Ancestral Protection Totem
+  // Mage
+  45438: 240, // Ice Block
+  110959: 120, // Greater Invisibility
+  342245: 60, // Alter Time
+  414660: 90, // Mass Barrier
+  // Warlock
+  104773: 180, // Unending Resolve
+  108416: 60, // Dark Pact
+  // Monk
+  115203: 420, // Fortifying Brew
+  122278: 120, // Dampen Harm
+  122783: 120, // Diffuse Magic
+  116849: 120, // Life Cocoon
+  115310: 180, // Revival
+  // Druid
+  22812: 60, // Barkskin
+  61336: 180, // Survival Instincts
+  108238: 90, // Renewal
+  740: 180, // Tranquility
+  102342: 90, // Ironbark
+  // Demon Hunter
+  198589: 60, // Blur
+  196718: 300, // Darkness
+  // Evoker
+  363916: 90, // Obsidian Scales
+  374348: 90, // Renewing Blaze
+  363534: 240, // Rewind
+  357170: 60, // Time Dilation
+};
+
+/** Combat-res-style consumables are once per fight rather than on a cooldown. */
+export const ONCE_PER_FIGHT_CATEGORIES = new Set<AbilityCategory>(['health-pot', 'combat-pot']);
