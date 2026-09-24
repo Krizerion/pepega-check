@@ -448,8 +448,10 @@ export function buildDemoReport(): DemoData {
     });
 
     const fightEvents = buildFightEvents(random, players, bossActorId, startTime, endTime, isKill);
+    const damageEvents = buildDamageEvents(id, players, bossActorId, fightEvents);
+    alignDeathsToDamage(fightEvents.deaths, damageEvents);
     eventsByFight.set(id, fightEvents);
-    damageByFight.set(id, buildDamageEvents(id, players, bossActorId, fightEvents));
+    damageByFight.set(id, damageEvents);
     dispelsByFight.set(id, buildDispelEvents(id, players, startTime, endTime));
   });
 
@@ -559,6 +561,34 @@ function buildDamageEvents(
     }
   }
   return damage.sort((a, b) => a.timestamp - b.timestamp);
+}
+
+/**
+ * Pins each death to a real hit the player took.
+ *
+ * Deaths are generated independently of the damage ticks, so without this a
+ * demo death names an ability that never actually hit that player — which
+ * makes the death log and the per-mechanic coverage review disagree. Warcraft
+ * Logs timestamps a death at its killing blow, so the demo should too.
+ */
+function alignDeathsToDamage(deaths: DeathEvent[], damage: DamageEvent[]): void {
+  for (const death of deaths) {
+    let killer: DamageEvent | null = null;
+    for (const hit of damage) {
+      if (hit.targetID !== death.targetID || hit.timestamp > death.timestamp) {
+        continue;
+      }
+      if (!killer || hit.timestamp > killer.timestamp) {
+        killer = hit;
+      }
+    }
+    if (killer) {
+      death.timestamp = killer.timestamp;
+      death.abilityGameID = killer.abilityGameID;
+      death.killingAbilityGameID = killer.abilityGameID;
+    }
+  }
+  deaths.sort((a, b) => a.timestamp - b.timestamp);
 }
 
 function buildPhases(

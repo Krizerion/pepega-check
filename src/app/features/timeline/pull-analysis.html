@@ -82,6 +82,109 @@
     </ul>
   }
 
+  @if (phaseRows().length > 0) {
+    <section class="card">
+      <button class="card-head" (click)="toggleSection('phases')">
+        <span class="chev" [class.open]="isOpen('phases')">▸</span>
+        <span class="card-title">Where pulls end</span>
+        <span class="card-meta">{{ phaseRows().length }} phases</span>
+      </button>
+      @if (isOpen('phases')) {
+        <div class="card-body">
+          <p class="hint">
+            Which phase is costing the night: how many pulls entered it, got past it, and ended
+            there. The death window is where the middle half of that phase's deaths land, measured
+            from the start of the pull.
+          </p>
+          <table class="phases">
+            <thead>
+              <tr>
+                <th class="sortable" (click)="sortBy(phaseSort, 'phase')">
+                  Phase{{ arrow(phaseSort(), 'phase') }}
+                </th>
+                <th
+                  class="num sortable"
+                  title="Pulls that entered this phase"
+                  (click)="sortBy(phaseSort, 'reached')"
+                >
+                  Entered{{ arrow(phaseSort(), 'reached') }}
+                </th>
+                <th
+                  class="num sortable"
+                  title="Pulls that got past this phase"
+                  (click)="sortBy(phaseSort, 'cleared')"
+                >
+                  Cleared{{ arrow(phaseSort(), 'cleared') }}
+                </th>
+                <th
+                  class="num sortable"
+                  title="Pulls that ended here without a kill, and the median time they ended"
+                  (click)="sortBy(phaseSort, 'wipes')"
+                >
+                  Ended here{{ arrow(phaseSort(), 'wipes') }}
+                </th>
+                <th class="num sortable bar-col" (click)="sortBy(phaseSort, 'deaths')">
+                  Deaths{{ arrow(phaseSort(), 'deaths') }}
+                </th>
+                <th class="num sortable" (click)="sortBy(phaseSort, 'deathsPerPull')">
+                  Per pull{{ arrow(phaseSort(), 'deathsPerPull') }}
+                </th>
+                <th>Death window</th>
+                <th>Deadliest</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of sortedPhases(); track row.phase) {
+                <tr>
+                  <td>
+                    <span class="name">{{ row.name }}</span>
+                  </td>
+                  <td class="num">{{ row.reached }}</td>
+                  <td class="num">{{ row.cleared }}</td>
+                  <td class="num">
+                    <span [class.none]="row.wipes > 0">{{ row.wipes || '—' }}</span>
+                    @if (row.medianWipeMs !== null) {
+                      <span class="ago">~{{ format(row.medianWipeMs) }}</span>
+                    }
+                  </td>
+                  <td class="num bar-cell">
+                    <span class="cell-bar danger-bar" [style.width.%]="row.pct"></span>
+                    <span class="cell-value strong">{{ row.deaths }}</span>
+                  </td>
+                  <td class="num">{{ row.deathsPerPull.toFixed(2) }}</td>
+                  <td class="time">
+                    @if (row.window) {
+                      {{ format(row.window.fromMs) }}–{{ format(row.window.toMs) }}
+                    } @else {
+                      <span class="ago">—</span>
+                    }
+                  </td>
+                  <td class="killers">
+                    @for (killer of row.killers; track killer.id) {
+                      <span class="killer">
+                        <img [src]="killer.icon" (error)="onIconError($event)" alt="" />
+                        @if (killer.url) {
+                          <a appWowhead [href]="killer.url" target="_blank" rel="noreferrer">{{
+                            killer.name
+                          }}</a>
+                        } @else {
+                          {{ killer.name }}
+                        }
+                        <span class="ago">×{{ killer.deaths }}</span>
+                      </span>
+                    } @empty {
+                      <span class="ago">—</span>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  }
+
   @if (performance().length > 0) {
     <section class="card">
       <button class="card-head" (click)="toggleSection('performance')">
@@ -245,6 +348,166 @@
               }
             </tbody>
           </table>
+        </div>
+      }
+    </section>
+  }
+
+  @if (coverage().length > 0) {
+    <section class="card">
+      <button class="card-head" (click)="toggleSection('coverage')">
+        <span class="chev" [class.open]="isOpen('coverage')">▸</span>
+        <span class="card-title">Defensive coverage by mechanic</span>
+        <span class="card-meta">
+          {{ coverageTotals().missed }} of {{ coverageTotals().hits }} hits had a cooldown ready
+        </span>
+      </button>
+      @if (isOpen('coverage')) {
+        <div class="card-body">
+          <p class="hint disclaimer">
+            <strong>⚠ A prompt to review the log, not a verdict.</strong> For every cast of a
+            mechanic that caught someone, this asks whether they had pressed a defensive, immunity,
+            raid CD or health pot in the 12s before. Buff data is not fetched, so a long defensive
+            can be credited late and a short one credited after it fell off. <em>Had ready</em> only
+            counts spells the player used at some point tonight, with a known base cooldown, that
+            were off cooldown at that moment — it cannot know whether pressing one was actually the
+            right call.
+          </p>
+          @for (group of sortedCoverage(); track group.abilityId) {
+            <div class="mech-block">
+              <div class="mech-head">
+                <img [src]="group.icon" (error)="onIconError($event)" alt="" />
+                <a appWowhead [href]="group.url" target="_blank" rel="noreferrer">{{
+                  group.name
+                }}</a>
+                <span class="cover-track">
+                  <span class="cover-fill" [style.width.%]="group.pct"></span>
+                </span>
+                <span class="mech-stat">{{ group.covered }}/{{ group.hits }} covered</span>
+                @if (group.deaths > 0) {
+                  <span class="none">☠ {{ group.deaths }}</span>
+                }
+              </div>
+              <table class="inner">
+                <thead>
+                  <tr>
+                    <th class="chev-col"></th>
+                    <th class="sortable" (click)="sortBy(covSort, 'name')">
+                      Player{{ arrow(covSort(), 'name') }}
+                    </th>
+                    <th
+                      class="num sortable"
+                      title="Casts of this mechanic that caught the player"
+                      (click)="sortBy(covSort, 'hits')"
+                    >
+                      Hit{{ arrow(covSort(), 'hits') }}
+                    </th>
+                    <th
+                      class="num sortable"
+                      title="Hits with a defensive pressed shortly before"
+                      (click)="sortBy(covSort, 'covered')"
+                    >
+                      Covered{{ arrow(covSort(), 'covered') }}
+                    </th>
+                    <th
+                      class="num sortable"
+                      title="Uncovered hits where a cooldown was demonstrably off cooldown"
+                      (click)="sortBy(covSort, 'missed')"
+                    >
+                      CD was ready{{ arrow(covSort(), 'missed') }}
+                    </th>
+                    <th class="num sortable" (click)="sortBy(covSort, 'damage')">
+                      Damage{{ arrow(covSort(), 'damage') }}
+                    </th>
+                    <th>Had ready</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (row of group.rows; track row.key) {
+                    <tr class="expandable" (click)="toggleExpanded('cov:' + row.key)">
+                      <td class="chev-col">
+                        <span class="chev" [class.open]="expanded().has('cov:' + row.key)">▸</span>
+                      </td>
+                      <td>
+                        <span class="name" [style.color]="row.color">{{ row.name }}</span>
+                        @if (row.deaths > 0) {
+                          <span class="none" [title]="'Died to this ' + row.deaths + '×'">☠</span>
+                        }
+                      </td>
+                      <td class="num">{{ row.hits }}</td>
+                      <td class="num" [class.zero]="row.covered === 0">{{ row.covered || '—' }}</td>
+                      <td class="num" [class.none]="row.missed > 0" [class.zero]="row.missed === 0">
+                        {{ row.missed || '—' }}
+                      </td>
+                      <td class="num">{{ fmt(row.damage) }}</td>
+                      <td class="available">
+                        @for (cd of row.suggestions; track cd.id) {
+                          <a
+                            appWowhead
+                            [href]="'https://www.wowhead.com/spell=' + cd.id"
+                            target="_blank"
+                            rel="noreferrer"
+                            (click)="$event.stopPropagation()"
+                            [attr.aria-label]="cd.name + ' was ready ' + cd.times + ' times'"
+                          >
+                            <img [src]="cd.icon" (error)="onIconError($event)" alt="" />
+                          </a>
+                          <span class="ago">×{{ cd.times }}</span>
+                        } @empty {
+                          <span class="ago">—</span>
+                        }
+                      </td>
+                    </tr>
+                    @if (expanded().has('cov:' + row.key)) {
+                      <tr class="detail">
+                        <td></td>
+                        <td colspan="6">
+                          @for (inst of row.instances; track $index) {
+                            <div class="inst" [class.fatal]="inst.fatal">
+                              <span class="inst-when">
+                                @if (scope() === 'all') {
+                                  <span class="ago">Pull {{ inst.pull }}</span>
+                                }
+                                {{ format(inst.atMs) }}
+                              </span>
+                              @if (inst.mitigation; as m) {
+                                <span class="inst-ok">
+                                  <img [src]="m.icon" (error)="onIconError($event)" alt="" />
+                                  {{ m.name }}
+                                  <span class="ago">{{ m.secondsBefore }}s before</span>
+                                </span>
+                              } @else if (inst.ready.length > 0) {
+                                <span class="inst-bad">
+                                  nothing up — had
+                                  @for (cd of inst.ready; track cd.id) {
+                                    <a
+                                      appWowhead
+                                      [href]="'https://www.wowhead.com/spell=' + cd.id"
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      [attr.aria-label]="cd.name"
+                                    >
+                                      <img [src]="cd.icon" (error)="onIconError($event)" alt="" />
+                                    </a>
+                                  }
+                                </span>
+                              } @else {
+                                <span class="ago">nothing up, nothing ready</span>
+                              }
+                              <span class="inst-dmg">{{ fmt(inst.damage) }}</span>
+                              @if (inst.fatal) {
+                                <span class="none">☠ fatal</span>
+                              }
+                            </div>
+                          }
+                        </td>
+                      </tr>
+                    }
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
         </div>
       }
     </section>

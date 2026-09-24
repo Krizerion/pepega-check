@@ -12,9 +12,11 @@ import {
 } from '@angular/core';
 
 import { buildAvoidableRows, heuristicAvoidable } from '../../core/analysis/avoidable';
+import { buildCoverageGroups } from '../../core/analysis/coverage';
 import { aggregateDamage, buildMechanicGroups } from '../../core/analysis/damage';
 import { buildDeathLeaderboard, buildDeathRows } from '../../core/analysis/deaths';
 import { buildSummaryMarkdown } from '../../core/analysis/export';
+import { buildPhaseWipeRows, phaseWipeHeadline } from '../../core/analysis/phases';
 import { SortState, nextSort, sortRows } from '../../core/analysis/sort';
 import { AnalysisInput } from '../../core/analysis/types';
 import { buildUtilityRows } from '../../core/analysis/utility';
@@ -72,6 +74,8 @@ export class PullAnalysis {
   protected readonly boardSort = signal<SortState>({ key: 'deaths', dir: -1 });
   protected readonly mechSort = signal<SortState>({ key: 'name', dir: 1 });
   protected readonly avoidSort = signal<SortState>({ key: 'damage', dir: -1 });
+  protected readonly covSort = signal<SortState>({ key: 'missed', dir: -1 });
+  protected readonly phaseSort = signal<SortState>({ key: 'phase', dir: 1 });
 
   /** Collapsed section ids; sections are open unless listed here. */
   private readonly collapsed = signal<ReadonlySet<string>>(new Set());
@@ -140,8 +144,17 @@ export class PullAnalysis {
       damage: this.store.damageByFight(),
       dispels: this.store.dispelsByFight(),
       ignoreAfterDeaths: this.store.ignoreAfterDeaths(),
+      pullNumber: this.pullNumbers(),
     };
   });
+
+  /** Fight id to its pull number in the encounter, for labelling instances. */
+  private readonly pullNumbers = computed(
+    () =>
+      new Map(
+        (this.store.selectedEncounter()?.pulls ?? []).map((pull, index) => [pull.id, index + 1]),
+      ),
+  );
 
   protected readonly title = computed(() => {
     if (this.scope() === 'all') {
@@ -240,6 +253,29 @@ export class PullAnalysis {
     return input ? buildUtilityRows(input) : [];
   });
 
+  /** Per-mechanic defensive coverage (E2). */
+  protected readonly coverage = computed(() => {
+    const input = this.input();
+    return input ? buildCoverageGroups(input, this.includeAbsorbed()) : [];
+  });
+
+  protected readonly coverageTotals = computed(() => {
+    const groups = this.coverage();
+    return {
+      hits: groups.reduce((sum, g) => sum + g.hits, 0),
+      missed: groups.reduce((sum, g) => sum + g.rows.reduce((n, r) => n + r.missed, 0), 0),
+    };
+  });
+
+  /**
+   * Where pulls end, across the whole encounter (E4). Only meaningful with more
+   * than one pull in scope, so the single-pull tab leaves it out.
+   */
+  protected readonly phaseRows = computed(() => {
+    const input = this.input();
+    return input && this.scope() === 'all' ? buildPhaseWipeRows(input) : [];
+  });
+
   /** Overall damage/healing per raider across the scope, with kill parses. */
   protected readonly performance = computed<PerformanceRow[]>(() => {
     const perf = this.store.performanceByFight();
@@ -311,8 +347,12 @@ export class PullAnalysis {
   );
 
   protected readonly summary = computed<string[]>(() => {
+    if (this.scope() === 'all') {
+      const headline = phaseWipeHeadline(this.phaseRows());
+      return headline ? [headline] : [];
+    }
     const pull = this.store.selectedPull();
-    if (!pull || this.scope() !== 'pull') {
+    if (!pull) {
       return [];
     }
     const deaths = this.deathRows();
@@ -363,6 +403,11 @@ export class PullAnalysis {
     sortRows(this.deathLeaderboard(), this.boardSort()),
   );
   protected readonly sortedAvoidable = computed(() => sortRows(this.avoidable(), this.avoidSort()));
+  protected readonly sortedPhases = computed(() => sortRows(this.phaseRows(), this.phaseSort()));
+  protected readonly sortedCoverage = computed(() => {
+    const sort = this.covSort();
+    return this.coverage().map((group) => ({ ...group, rows: sortRows(group.rows, sort) }));
+  });
   protected readonly sortedMechanicGroups = computed(() => {
     const sort = this.mechSort();
     return this.mechanicGroups().map((group) => ({
@@ -387,8 +432,10 @@ export class PullAnalysis {
 
   /** All section ids currently rendered, for collapse/expand all. */
   protected readonly sectionIds = computed(() => [
+    ...(this.phaseRows().length > 0 ? ['phases'] : []),
     'performance',
     'avoidable',
+    ...(this.coverage().length > 0 ? ['coverage'] : []),
     ...this.mechanicGroups().map((g) => `mech:${g.phase}`),
     'utility',
     'deaths',
