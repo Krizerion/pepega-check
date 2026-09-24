@@ -27,6 +27,12 @@ Hover any icon for the ability name and timestamp. Use the role and category chi
 (health pots/stones and combat pots are separate), the boss ability picker to focus on specific
 mechanics, and the −/+ controls to zoom the time axis.
 
+Ability names that link to Wowhead show the live Wowhead spell tooltip on hover, via their
+[tooltip widget](https://wow.zamimg.com/js/tooltips.js) loaded in `index.html`. Links rendered
+after page load are re-scanned by the `appWowhead` directive in
+[`src/app/core/wowhead`](src/app/core/wowhead/wowhead-tooltip.ts). In demo mode the boss spell
+IDs are fictional, so those tooltips report "Spell Not Found" — real reports show real tooltips.
+
 ## Getting started
 
 ```bash

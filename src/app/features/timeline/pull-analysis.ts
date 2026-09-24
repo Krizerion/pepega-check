@@ -21,6 +21,7 @@ import {
   killingAbilityId,
 } from '../../core/models/wcl';
 import { ReportStore } from '../../core/state/report-store';
+import { WowheadLink } from '../../core/wowhead/wowhead-tooltip';
 
 /** Categories that count as "tried to survive" right before a death. */
 const MITIGATION_CATEGORIES = new Set(['defensive', 'immunity', 'health-pot', 'raid-cd']);
@@ -160,6 +161,7 @@ function sortRows<T>(rows: T[], sort: SortState): T[] {
 @Component({
   selector: 'app-pull-analysis',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [WowheadLink],
   templateUrl: './pull-analysis.html',
   styleUrl: './pull-analysis.scss',
   host: {

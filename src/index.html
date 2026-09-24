@@ -7,6 +7,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark" />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
+
+    <!--
+      Wowhead's tooltip widget: hovering any wowhead.com link shows the live
+      spell tooltip. Links keep our own text, icons and class colours, so the
+      widget only attaches the tooltip itself.
+    -->
+    <script>
+      var whTooltips = { colorLinks: false, iconizeLinks: false, renameLinks: false };
+    </script>
+    <script src="https://wow.zamimg.com/js/tooltips.js" defer></script>
   </head>
   <body>
     <app-root></app-root>

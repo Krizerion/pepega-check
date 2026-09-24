@@ -4,10 +4,12 @@ import { CATEGORIES } from '../../core/data/ability-catalog';
 import { abilityIconUrl } from '../../core/data/wow';
 import { PlayerRole } from '../../core/models/wcl';
 import { CategoryAbilities, ReportStore } from '../../core/state/report-store';
+import { WowheadLink } from '../../core/wowhead/wowhead-tooltip';
 
 @Component({
   selector: 'app-filter-bar',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [WowheadLink],
   template: `
     <div class="bar">
       <div class="group">
@@ -108,11 +110,11 @@ import { CategoryAbilities, ReportStore } from '../../core/state/report-store';
                 <span class="pick-name">{{ ability.name }}</span>
                 <span class="pick-count">×{{ ability.count }}</span>
                 <a
+                  appWowhead
                   class="pick-link"
                   [href]="'https://www.wowhead.com/spell=' + ability.id"
                   target="_blank"
                   rel="noreferrer"
-                  title="Open on Wowhead"
                   (click)="$event.stopPropagation()"
                   >↗</a
                 >

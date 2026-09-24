@@ -195,7 +195,7 @@
                         <div class="bar-row">
                           <span class="bar-name">
                             <img [src]="mechanic.icon" (error)="onIconError($event)" alt="" />
-                            <a [href]="mechanic.url" target="_blank" rel="noreferrer">{{
+                            <a appWowhead [href]="mechanic.url" target="_blank" rel="noreferrer">{{
                               mechanic.name
                             }}</a>
                           </span>
@@ -257,10 +257,10 @@
                   <td class="mech-name">
                     <img [src]="row.icon" (error)="onIconError($event)" alt="" />
                     <a
+                      appWowhead
                       [href]="row.url"
                       target="_blank"
                       rel="noreferrer"
-                      title="Open on Wowhead"
                       (click)="$event.stopPropagation()"
                       >{{ row.name }}</a
                     >
@@ -385,7 +385,7 @@
                   <td>
                     <img [src]="death.abilityIcon" (error)="onIconError($event)" alt="" />
                     @if (death.abilityUrl) {
-                      <a [href]="death.abilityUrl" target="_blank" rel="noreferrer">{{
+                      <a appWowhead [href]="death.abilityUrl" target="_blank" rel="noreferrer">{{
                         death.abilityName
                       }}</a>
                     } @else {
