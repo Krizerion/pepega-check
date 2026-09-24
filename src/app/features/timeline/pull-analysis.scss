@@ -172,6 +172,14 @@ h3 {
   padding: 0 4px;
 }
 
+.ghost.ok {
+  color: var(--success);
+}
+
+.ghost.bad {
+  color: var(--danger);
+}
+
 /* ---------- status + summary ---------- */
 
 .loading {

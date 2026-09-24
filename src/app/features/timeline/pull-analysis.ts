@@ -14,6 +14,7 @@ import {
 import { buildAvoidableRows, heuristicAvoidable } from '../../core/analysis/avoidable';
 import { aggregateDamage, buildMechanicGroups } from '../../core/analysis/damage';
 import { buildDeathLeaderboard, buildDeathRows } from '../../core/analysis/deaths';
+import { buildSummaryMarkdown } from '../../core/analysis/export';
 import { SortState, nextSort, sortRows } from '../../core/analysis/sort';
 import { AnalysisInput } from '../../core/analysis/types';
 import { buildUtilityRows } from '../../core/analysis/utility';
@@ -453,5 +454,32 @@ export class PullAnalysis {
 
   protected onIconError(event: Event): void {
     (event.target as HTMLImageElement).style.visibility = 'hidden';
+  }
+
+  // --- export ---
+
+  /** 'idle' | 'copied' | 'failed', shown on the copy button. */
+  protected readonly copyState = signal<'idle' | 'copied' | 'failed'>('idle');
+
+  protected async copySummary(): Promise<void> {
+    const text = buildSummaryMarkdown({
+      title: this.title(),
+      subtitle: this.subtitle(),
+      url: window.location.href,
+      scope: this.scope(),
+      summary: this.summary(),
+      deaths: this.deathRows(),
+      leaderboard: this.deathLeaderboard(),
+      avoidable: this.avoidable(),
+      utility: this.utility(),
+    });
+
+    try {
+      await navigator.clipboard.writeText(text);
+      this.copyState.set('copied');
+    } catch {
+      this.copyState.set('failed');
+    }
+    setTimeout(() => this.copyState.set('idle'), 2000);
   }
 }
