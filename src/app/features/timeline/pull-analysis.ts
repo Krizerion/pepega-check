@@ -17,7 +17,7 @@ import { buildDeathLeaderboard, buildDeathRows } from '../../core/analysis/death
 import { buildSummaryMarkdown } from '../../core/analysis/export';
 import { buildPhaseWipeRows, phaseWipeHeadline } from '../../core/analysis/phases';
 import { SortState, nextSort, sortRows } from '../../core/analysis/sort';
-import { AnalysisInput } from '../../core/analysis/types';
+import { AnalysisInput, DeathMoment } from '../../core/analysis/types';
 import { buildUtilityRows } from '../../core/analysis/utility';
 import { classColor } from '../../core/data/wow';
 import { ReportFight, fightDuration, formatOffset } from '../../core/models/wcl';
@@ -467,6 +467,19 @@ export class PullAnalysis {
     if (parse >= 50) return '#0070dd';
     if (parse >= 25) return '#1eff00';
     return '#8b8b98';
+  }
+
+  /** Whole seconds before the death, for the step list. */
+  protected seconds(beforeMs: number): string {
+    return (beforeMs / 1000).toFixed(1);
+  }
+
+  protected momentTitle(moment: DeathMoment): string {
+    const at = `${this.seconds(moment.beforeMs)}s before death`;
+    return moment.kind === 'cast'
+      ? `${moment.name} — pressed ${at}`
+      : `${moment.name} — ${this.fmt(moment.amount)} damage, ${at}` +
+          (moment.fatal ? ' (killing blow)' : '');
   }
 
   protected onIconError(event: Event): void {

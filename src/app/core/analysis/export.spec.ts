@@ -11,6 +11,8 @@ const death = (over: Partial<DeathRow> = {}): DeathRow => ({
   abilityUrl: null,
   mitigation: null,
   available: [],
+  timeline: [],
+  damageTaken: 0,
   ...over,
 });
 

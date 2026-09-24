@@ -541,50 +541,57 @@
       @if (isOpen('deaths')) {
         <div class="card-body">
           <p class="hint disclaimer">
-            <strong>⚠ Read this as a prompt to check the log, not a verdict.</strong> "Nothing
-            pressed" means no defensive, immunity, raid CD or health pot in the 12s before dying.
-            "Had available" lists survival cooldowns the player used earlier in the night (so we
-            know they have them) that were off cooldown at the time — it only covers spells with a
-            known base cooldown, ignores talents that shorten them, and cannot tell whether someone
-            was chunked from full health with no chance to react.
+            <strong>⚠ Read this as a prompt to check the log, not a verdict.</strong> Each row is
+            the 12 seconds before the death: every boss ability that hit the raider, and everything
+            they pressed. Healing is not shown, so a death can look survivable when nobody was
+            healing it. <em>Had ready</em> lists survival cooldowns the player used earlier tonight
+            that were off cooldown at the time — it ignores talents that shorten cooldowns and
+            cannot tell whether someone was chunked from full with no chance to react.
           </p>
-          <table>
+          <table class="deaths">
             <thead>
               <tr>
+                <th class="chev-col"></th>
                 <th>Time</th>
                 <th>Player</th>
-                <th>Killed by</th>
-                <th>Last defensive / health pot before death</th>
-                <th>Had available</th>
+                <th class="story-col">Last 12 seconds before dying</th>
+                <th class="num">Taken</th>
+                <th>Had ready</th>
               </tr>
             </thead>
             <tbody>
               @for (death of deathRows(); track $index) {
-                <tr>
+                <tr class="expandable" (click)="toggleExpanded('death:' + $index)">
+                  <td class="chev-col">
+                    <span class="chev" [class.open]="expanded().has('death:' + $index)">▸</span>
+                  </td>
                   <td class="time">{{ format(death.timeMs) }}</td>
                   <td>
                     <span class="name" [style.color]="death.playerColor">{{
                       death.playerName
                     }}</span>
                   </td>
-                  <td>
-                    <img [src]="death.abilityIcon" (error)="onIconError($event)" alt="" />
-                    @if (death.abilityUrl) {
-                      <a appWowhead [href]="death.abilityUrl" target="_blank" rel="noreferrer">{{
-                        death.abilityName
-                      }}</a>
-                    } @else {
-                      {{ death.abilityName }}
-                    }
+                  <td class="story-col">
+                    <div class="story">
+                      <span class="story-axis"></span>
+                      @for (moment of death.timeline; track $index) {
+                        <span
+                          class="moment"
+                          [class.hit]="moment.kind === 'damage'"
+                          [class.press]="moment.kind === 'cast'"
+                          [class.fatal]="moment.fatal"
+                          [style.left.%]="moment.pct"
+                          [style.border-color]="moment.color"
+                          [title]="momentTitle(moment)"
+                        >
+                          <img [src]="moment.icon" (error)="onIconError($event)" alt="" />
+                        </span>
+                      } @empty {
+                        <span class="story-empty">nothing hit them in this window</span>
+                      }
+                    </div>
                   </td>
-                  <td>
-                    @if (death.mitigation; as m) {
-                      <img [src]="m.icon" (error)="onIconError($event)" alt="" />
-                      {{ m.name }} <span class="ago">{{ m.secondsBefore }}s before</span>
-                    } @else {
-                      <span class="none">— nothing pressed</span>
-                    }
-                  </td>
+                  <td class="num strong">{{ death.damageTaken ? fmt(death.damageTaken) : '—' }}</td>
                   <td class="available">
                     @for (cd of death.available; track cd.id) {
                       <a
@@ -592,6 +599,7 @@
                         [href]="'https://www.wowhead.com/spell=' + cd.id"
                         target="_blank"
                         rel="noreferrer"
+                        (click)="$event.stopPropagation()"
                         [attr.aria-label]="cd.name + ' was off cooldown'"
                       >
                         <img [src]="cd.icon" (error)="onIconError($event)" alt="" />
@@ -601,6 +609,38 @@
                     }
                   </td>
                 </tr>
+                @if (expanded().has('death:' + $index)) {
+                  <tr class="detail">
+                    <td></td>
+                    <td colspan="5">
+                      @for (moment of death.timeline; track $index) {
+                        <div class="step" [class.fatal]="moment.fatal">
+                          <span class="step-at">−{{ seconds(moment.beforeMs) }}s</span>
+                          <img [src]="moment.icon" (error)="onIconError($event)" alt="" />
+                          @if (moment.url) {
+                            <a appWowhead [href]="moment.url" target="_blank" rel="noreferrer">{{
+                              moment.name
+                            }}</a>
+                          } @else {
+                            <span>{{ moment.name }}</span>
+                          }
+                          @if (moment.kind === 'cast') {
+                            <span class="step-tag" [style.color]="moment.color">pressed</span>
+                          } @else {
+                            <span class="step-dmg">{{ fmt(moment.amount) }}</span>
+                          }
+                          @if (moment.fatal) {
+                            <span class="none">☠ killing blow</span>
+                          }
+                        </div>
+                      } @empty {
+                        <p class="hint">
+                          No boss damage and nothing pressed in the 12s before this death.
+                        </p>
+                      }
+                    </td>
+                  </tr>
+                }
               }
             </tbody>
           </table>

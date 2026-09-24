@@ -2,7 +2,7 @@ import { CastEvent, DamageEvent, DeathEvent, DispelEvent, FightEvents } from '..
 import { buildAvoidableRows, heuristicAvoidable } from './avoidable';
 import { deathCutoff } from './cutoff';
 import { aggregateDamage, buildMechanicGroups, phaseAt } from './damage';
-import { buildDeathLeaderboard, buildDeathRows } from './deaths';
+import { buildDeathLeaderboard, buildDeathRows, buildDeathTimeline } from './deaths';
 import { nextSort, sortRows } from './sort';
 import {
   BARKSKIN,
@@ -231,6 +231,65 @@ describe('buildDeathRows', () => {
   it('respects the death cutoff', () => {
     const cut = buildDeathRows(fight, makeInput({ ignoreAfterDeaths: 1 }));
     expect(cut).toHaveLength(1);
+  });
+});
+
+describe('death timelines', () => {
+  const rows = buildDeathRows(fight, makeInput());
+  const dee = rows[0]; // dies at 60s to Floor Spike
+
+  it('reconstructs the 12s before the death, oldest first', () => {
+    // In Dee's window: a spike at 20s is too old; the 60s spike lands on it.
+    expect(dee.timeline.map((m) => m.name)).toEqual(['Floor Spike']);
+    expect(dee.timeline[0].beforeMs).toBe(0);
+  });
+
+  it('interleaves what the player pressed with what hit them', () => {
+    // Built directly: no death in the shared fixture happens within 12s of a
+    // cast, so going through buildDeathRows would assert nothing.
+    const moments = buildDeathTimeline(
+      death(60_000, 3, SPIKE),
+      { abilities },
+      [cast(52_000, 3, BARKSKIN), cast(20_000, 3, BARKSKIN)],
+      [hit(55_000, 3, SPIKE, 400), hit(60_000, 3, SPIKE, 900)],
+    );
+    expect(moments.map((m) => [m.kind, m.name])).toEqual([
+      ['cast', 'Barkskin'], // 8s before
+      ['damage', 'Floor Spike'], // 5s before
+      ['damage', 'Floor Spike'], // the killing blow
+    ]);
+    // The cast at 20s is 40s before the death, well outside the window.
+    expect(moments).toHaveLength(3);
+  });
+
+  it('ignores rotational casts, keeping only catalogued abilities', () => {
+    const moments = buildDeathTimeline(
+      death(60_000, 3, SPIKE),
+      { abilities },
+      [cast(55_000, 3, 999_999)],
+      [],
+    );
+    expect(moments).toEqual([]);
+  });
+
+  it('marks the killing blow', () => {
+    expect(dee.timeline.filter((m) => m.fatal)).toHaveLength(1);
+    expect(dee.timeline.find((m) => m.fatal)!.name).toBe('Floor Spike');
+  });
+
+  it('totals the damage taken in the window', () => {
+    expect(dee.damageTaken).toBe(700); // the 60s spike only
+  });
+
+  it('positions each moment across the window', () => {
+    // The killing blow lands at the death, so it sits at the far end.
+    expect(dee.timeline.find((m) => m.fatal)!.pct).toBe(100);
+  });
+
+  it('ignores damage from outside the window', () => {
+    const eee = rows.find((r) => r.playerName === 'Eee')!;
+    // Eee dies at 120s; the only spike on Eee is at 150s, after the death.
+    expect(eee.timeline.filter((m) => m.kind === 'damage')).toEqual([]);
   });
 });
 

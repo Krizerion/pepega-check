@@ -88,6 +88,25 @@ export interface SurvivalCd {
   icon: string;
 }
 
+/** One thing that happened to a player shortly before they died. */
+export interface DeathMoment {
+  /** How long before the death, in ms. */
+  beforeMs: number;
+  kind: 'damage' | 'cast';
+  abilityId: number;
+  name: string;
+  icon: string;
+  url: string | null;
+  /** Damage only. */
+  amount: number;
+  /** Damage only: the blow that finished them. */
+  fatal: boolean;
+  /** Cast only: the catalog colour of its category. */
+  color: string | null;
+  /** Position across the window, 0-100. */
+  pct: number;
+}
+
 export interface DeathRow {
   timeMs: number;
   playerId: number;
@@ -99,6 +118,10 @@ export interface DeathRow {
   mitigation: Mitigation | null;
   /** Survival abilities known to be off cooldown when the player died. */
   available: SurvivalCd[];
+  /** Everything that hit them, and everything they pressed, before dying. */
+  timeline: DeathMoment[];
+  /** Total damage taken across the window. */
+  damageTaken: number;
 }
 
 export interface LeaderboardRow {

@@ -641,6 +641,121 @@ td a {
   }
 }
 
+/* ---------- death timelines ---------- */
+
+/*
+ * A 12-second track per death. Position carries the meaning — three hits
+ * bunched at the right end reads as "chunked", the same three spread out reads
+ * as "ground down" — so the markers are placed by time rather than listed.
+ */
+.story-col {
+  width: 44%;
+}
+
+.story {
+  position: relative;
+  height: 26px;
+  min-width: 180px;
+}
+
+.story-axis {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  border-radius: 1px;
+  /* Fades in towards the death: the right-hand end is the moment of death. */
+  background: linear-gradient(90deg, rgba(229, 72, 77, 0.12), rgba(229, 72, 77, 0.55));
+}
+
+.moment {
+  position: absolute;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border-radius: 4px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-3);
+  overflow: hidden;
+
+  img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    border-radius: 0;
+  }
+
+  &.hit {
+    border-color: rgba(229, 72, 77, 0.75);
+  }
+
+  /* Pressed abilities sit above the line, damage on it, so the two read apart
+     at a glance even when they overlap in time. */
+  &.press {
+    top: 2px;
+    margin-top: 0;
+    width: 17px;
+    height: 17px;
+  }
+
+  &.fatal {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 2px rgba(229, 72, 77, 0.35);
+    z-index: 2;
+  }
+}
+
+.story-empty {
+  font-size: 11.5px;
+  color: var(--text-2);
+  line-height: 26px;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 12.5px;
+
+  img {
+    width: 17px;
+    height: 17px;
+    margin: 0;
+  }
+
+  &.fatal {
+    color: var(--text-0);
+  }
+}
+
+.step-at {
+  flex: 0 0 52px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+}
+
+.step-tag {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.step-dmg {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-1);
+}
+
+.step.fatal .step-dmg {
+  color: var(--danger);
+  font-weight: 700;
+}
+
 /* ---------- responsive ---------- */
 
 /*
@@ -712,6 +827,14 @@ td a {
 
   .inst-when {
     flex-basis: auto;
+  }
+
+  .story-col {
+    width: auto;
+  }
+
+  .step-dmg {
+    margin-left: 8px;
   }
 }
 
