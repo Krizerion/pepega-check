@@ -53,12 +53,17 @@ interface DeathRow {
   available: { id: number; name: string; icon: string }[];
 }
 
-interface ConsumableRow {
+interface UtilityRow {
   name: string;
   color: string;
+  /** Personal defensives and immunities pressed. */
+  defensives: number;
+  /** Raid-wide cooldowns pressed (externals, healing CDs). */
+  raidCds: number;
   combatPots: number;
   healthPots: number;
   dispels: number;
+  deaths: number;
 }
 
 interface PlayerHits {
@@ -191,7 +196,7 @@ export class PullAnalysis {
 
   // Per-table sort states.
   protected readonly perfSort = signal<SortState>({ key: 'damage', dir: -1 });
-  protected readonly consumSort = signal<SortState>({ key: 'name', dir: 1 });
+  protected readonly utilSort = signal<SortState>({ key: 'name', dir: 1 });
   protected readonly boardSort = signal<SortState>({ key: 'deaths', dir: -1 });
   protected readonly mechSort = signal<SortState>({ key: 'name', dir: 1 });
   protected readonly avoidSort = signal<SortState>({ key: 'damage', dir: -1 });
@@ -216,7 +221,7 @@ export class PullAnalysis {
     'performance',
     'avoidable',
     ...this.mechanicGroups().map((g) => `mech:${g.phase}`),
-    'consumables',
+    'utility',
     'deaths',
   ]);
 
@@ -651,9 +656,7 @@ export class PullAnalysis {
     sortRows(this.performance(), this.perfSort()),
   );
 
-  protected readonly sortedConsumables = computed(() =>
-    sortRows(this.consumables(), this.consumSort()),
-  );
+  protected readonly sortedUtility = computed(() => sortRows(this.utility(), this.utilSort()));
 
   protected readonly sortedLeaderboard = computed(() =>
     sortRows(this.deathLeaderboard(), this.boardSort()),
@@ -689,35 +692,62 @@ export class PullAnalysis {
     return '#8b8b98';
   }
 
-  /** Combat pot and health pot/stone usage per raider, cutoff-aware. */
-  protected readonly consumables = computed<ConsumableRow[]>(() => {
+  /** Per-raider survival and utility activity across the scope, cutoff-aware. */
+  protected readonly utility = computed<UtilityRow[]>(() => {
     const report = this.store.report();
     if (!report) {
       return [];
     }
     const events = this.store.events();
     const dispelEvents = this.store.dispelsByFight();
-    const counts = new Map<number, { combatPots: number; healthPots: number; dispels: number }>();
-    const blank = () => ({ combatPots: 0, healthPots: 0, dispels: 0 });
+    const blank = () => ({
+      defensives: 0,
+      raidCds: 0,
+      combatPots: 0,
+      healthPots: 0,
+      dispels: 0,
+      deaths: 0,
+    });
+    const counts = new Map<number, ReturnType<typeof blank>>();
+    const rowFor = (id: number) => {
+      const existing = counts.get(id);
+      if (existing) {
+        return existing;
+      }
+      const created = blank();
+      counts.set(id, created);
+      return created;
+    };
 
     for (const fight of this.scopeFights()) {
       const cutoff = this.cutoffFor(fight);
-      for (const cast of events.get(fight.id)?.friendlyCasts ?? []) {
+      const fightEvents = events.get(fight.id);
+
+      for (const cast of fightEvents?.friendlyCasts ?? []) {
         if (cutoff !== null && cast.timestamp > cutoff) {
           continue;
         }
         const ability = report.abilities.get(cast.abilityGameID);
         const category = classifyAbility(cast.abilityGameID, ability?.name ?? null);
-        if (category !== 'combat-pot' && category !== 'health-pot') {
+        if (!category) {
           continue;
         }
-        const row = counts.get(cast.sourceID) ?? blank();
-        if (category === 'combat-pot') {
-          row.combatPots++;
-        } else {
-          row.healthPots++;
+        const row = rowFor(cast.sourceID);
+        switch (category) {
+          case 'defensive':
+          case 'immunity':
+            row.defensives++;
+            break;
+          case 'raid-cd':
+            row.raidCds++;
+            break;
+          case 'combat-pot':
+            row.combatPots++;
+            break;
+          case 'health-pot':
+            row.healthPots++;
+            break;
         }
-        counts.set(cast.sourceID, row);
       }
 
       // Successful dispels only — failed dispel casts never produce these events.
@@ -725,9 +755,14 @@ export class PullAnalysis {
         if (cutoff !== null && dispel.timestamp > cutoff) {
           continue;
         }
-        const row = counts.get(dispel.sourceID) ?? blank();
-        row.dispels++;
-        counts.set(dispel.sourceID, row);
+        rowFor(dispel.sourceID).dispels++;
+      }
+
+      for (const death of fightEvents?.deaths ?? []) {
+        if (cutoff !== null && death.timestamp > cutoff) {
+          continue;
+        }
+        rowFor(death.targetID).deaths++;
       }
     }
 
@@ -742,9 +777,7 @@ export class PullAnalysis {
       .map((player) => ({
         name: player.name,
         color: classColor(player.className),
-        combatPots: counts.get(player.id)?.combatPots ?? 0,
-        healthPots: counts.get(player.id)?.healthPots ?? 0,
-        dispels: counts.get(player.id)?.dispels ?? 0,
+        ...(counts.get(player.id) ?? blank()),
       }));
   });
 

@@ -287,10 +287,38 @@ td.available {
   white-space: nowrap;
   line-height: 1;
 
+  a {
+    border-bottom: none;
+    display: inline-block;
+  }
+
   img {
     margin-right: 2px;
     opacity: 0.85;
+
+    &:hover {
+      opacity: 1;
+    }
   }
+}
+
+/* Equal-width metric columns so narrow counts don't get a wide column. */
+table.fixed {
+  table-layout: fixed;
+
+  .col-name {
+    width: 22%;
+  }
+
+  th.num {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+td.zero {
+  color: var(--text-2);
+  opacity: 0.55;
 }
 
 .ignore input[type='checkbox'] {

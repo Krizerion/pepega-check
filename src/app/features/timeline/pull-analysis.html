@@ -332,45 +332,77 @@
     </section>
   }
 
-  @if (consumables().length > 0) {
+  @if (utility().length > 0) {
     <section class="card">
-      <button class="card-head" (click)="toggleSection('consumables')">
-        <span class="chev" [class.open]="isOpen('consumables')">▸</span>
-        <span class="card-title">Consumables</span>
-        <span class="card-meta">{{ consumables().length }} raiders</span>
+      <button class="card-head" (click)="toggleSection('utility')">
+        <span class="chev" [class.open]="isOpen('utility')">▸</span>
+        <span class="card-title">Survival &amp; utility</span>
+        <span class="card-meta">{{ utility().length }} raiders</span>
       </button>
-      @if (isOpen('consumables')) {
+      @if (isOpen('utility')) {
         <div class="card-body">
-          <table>
+          <table class="fixed">
             <thead>
               <tr>
-                <th class="sortable" (click)="sortBy(consumSort, 'name')">
-                  Player{{ arrow(consumSort(), 'name') }}
+                <th class="sortable col-name" (click)="sortBy(utilSort, 'name')">
+                  Player{{ arrow(utilSort(), 'name') }}
                 </th>
-                <th class="num sortable" (click)="sortBy(consumSort, 'combatPots')">
-                  Combat pots{{ arrow(consumSort(), 'combatPots') }}
+                <th
+                  class="num sortable"
+                  title="Personal defensives and immunities pressed"
+                  (click)="sortBy(utilSort, 'defensives')"
+                >
+                  Defensives{{ arrow(utilSort(), 'defensives') }}
                 </th>
-                <th class="num sortable" (click)="sortBy(consumSort, 'healthPots')">
-                  Health pots &amp; stones{{ arrow(consumSort(), 'healthPots') }}
+                <th
+                  class="num sortable"
+                  title="Raid cooldowns and externals pressed"
+                  (click)="sortBy(utilSort, 'raidCds')"
+                >
+                  Raid CDs{{ arrow(utilSort(), 'raidCds') }}
+                </th>
+                <th class="num sortable" (click)="sortBy(utilSort, 'combatPots')">
+                  Combat pots{{ arrow(utilSort(), 'combatPots') }}
+                </th>
+                <th
+                  class="num sortable"
+                  title="Health potions and healthstones"
+                  (click)="sortBy(utilSort, 'healthPots')"
+                >
+                  Health pots{{ arrow(utilSort(), 'healthPots') }}
                 </th>
                 <th
                   class="num sortable"
                   title="Successful dispels — failed dispel casts are not counted"
-                  (click)="sortBy(consumSort, 'dispels')"
+                  (click)="sortBy(utilSort, 'dispels')"
                 >
-                  Dispels{{ arrow(consumSort(), 'dispels') }}
+                  Dispels{{ arrow(utilSort(), 'dispels') }}
+                </th>
+                <th class="num sortable" (click)="sortBy(utilSort, 'deaths')">
+                  Deaths{{ arrow(utilSort(), 'deaths') }}
                 </th>
               </tr>
             </thead>
             <tbody>
-              @for (row of sortedConsumables(); track row.name) {
+              @for (row of sortedUtility(); track row.name) {
                 <tr>
-                  <td>
+                  <td class="col-name">
                     <span class="name" [style.color]="row.color">{{ row.name }}</span>
                   </td>
-                  <td class="num" [class.none]="row.combatPots === 0">{{ row.combatPots }}</td>
-                  <td class="num">{{ row.healthPots }}</td>
-                  <td class="num">{{ row.dispels || '—' }}</td>
+                  <td class="num" [class.zero]="row.defensives === 0">
+                    {{ row.defensives || '—' }}
+                  </td>
+                  <td class="num" [class.zero]="row.raidCds === 0">{{ row.raidCds || '—' }}</td>
+                  <td class="num" [class.none]="row.combatPots === 0">
+                    {{ row.combatPots || '0' }}
+                  </td>
+                  <td class="num" [class.zero]="row.healthPots === 0">
+                    {{ row.healthPots || '—' }}
+                  </td>
+                  <td class="num" [class.zero]="row.dispels === 0">{{ row.dispels || '—' }}</td>
+                  <td class="num" [class.none]="row.deaths > 0" [class.zero]="row.deaths === 0">
+                    {{ row.deaths || '—' }}
+                  </td>
                 </tr>
               }
             </tbody>
@@ -436,12 +468,15 @@
                   </td>
                   <td class="available">
                     @for (cd of death.available; track cd.id) {
-                      <img
-                        [src]="cd.icon"
-                        [title]="cd.name + ' was off cooldown'"
-                        (error)="onIconError($event)"
-                        alt=""
-                      />
+                      <a
+                        appWowhead
+                        [href]="'https://www.wowhead.com/spell=' + cd.id"
+                        target="_blank"
+                        rel="noreferrer"
+                        [attr.aria-label]="cd.name + ' was off cooldown'"
+                      >
+                        <img [src]="cd.icon" (error)="onIconError($event)" alt="" />
+                      </a>
                     } @empty {
                       <span class="ago">—</span>
                     }
