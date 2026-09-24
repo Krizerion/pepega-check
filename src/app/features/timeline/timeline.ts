@@ -18,10 +18,13 @@ import {
   killingAbilityId,
 } from '../../core/models/wcl';
 import { ReportStore } from '../../core/state/report-store';
+import { WowheadLink } from '../../core/wowhead/wowhead-tooltip';
 
 interface TimelineMarker {
   timeMs: number;
   kind: 'cast' | 'boss' | 'death';
+  /** The spell, so a clicked marker can offer its Wowhead page. */
+  abilityId: number | null;
   iconUrl: string | null;
   color: string;
   title: string;
@@ -41,6 +44,8 @@ interface TimelineRow {
   shadeMs: number | null;
   /** Navigation target when the label is clicked. */
   navId: number | null;
+  /** Boss rows link their label to Wowhead; nothing else does. */
+  wowheadUrl: string | null;
   markers: TimelineMarker[];
 }
 
@@ -54,6 +59,14 @@ interface Tooltip {
   y: number;
   title: string;
   sub: string;
+  /** Wowhead page for the spell, when the marker has one. */
+  url: string | null;
+  /**
+   * Pinned tooltips survive the pointer leaving the marker. The Wowhead widget
+   * only renders on hover of a real link, so clicking a marker parks the card
+   * with that link inside it rather than trying to drive the widget directly.
+   */
+  pinned: boolean;
 }
 
 const ROLE_SORT: Record<string, number> = { tank: 0, healer: 1, dps: 2 };
@@ -86,6 +99,11 @@ const BOSS_PALETTE = [
 @Component({
   selector: 'app-timeline',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [WowheadLink],
+  host: {
+    '(document:click)': 'unpinTip()',
+    '(document:keydown.escape)': 'unpinTip()',
+  },
   templateUrl: './timeline.html',
   styleUrl: './timeline.scss',
 })
@@ -257,6 +275,7 @@ export class Timeline {
         iconUrl: null,
         shadeMs: null,
         navId: null,
+        wowheadUrl: null,
         markers: [],
       });
       if (collapsed) {
@@ -272,6 +291,7 @@ export class Timeline {
           iconUrl: null,
           shadeMs: null,
           navId: player.id,
+          wowheadUrl: null,
           markers: this.playerMarkers(pull, player, `${player.name}`),
         });
       }
@@ -294,6 +314,7 @@ export class Timeline {
         .map((c) => ({
           timeMs: c.timestamp - pull.startTime,
           kind: 'boss' as const,
+          abilityId,
           iconUrl: abilityIconUrl(icon),
           color,
           title: name,
@@ -318,6 +339,7 @@ export class Timeline {
           iconUrl: null,
           shadeMs: null,
           navId: null,
+          wowheadUrl: null,
           markers: merged,
         },
       ];
@@ -333,6 +355,7 @@ export class Timeline {
         iconUrl: null,
         shadeMs: null,
         navId: null,
+        wowheadUrl: null,
         markers: [],
       },
       ...abilities.map(({ ability, color }) => ({
@@ -344,6 +367,7 @@ export class Timeline {
         iconUrl: abilityIconUrl(ability.icon),
         shadeMs: null,
         navId: null,
+        wowheadUrl: `https://www.wowhead.com/spell=${ability.id}`,
         markers: markersFor(ability.id, ability.icon, ability.name, color),
       })),
     ];
@@ -392,6 +416,7 @@ export class Timeline {
         iconUrl: null,
         shadeMs: fightDuration(pull),
         navId: pull.id,
+        wowheadUrl: null,
         markers,
       };
     });
@@ -424,6 +449,7 @@ export class Timeline {
       markers.push({
         timeMs,
         kind: 'cast',
+        abilityId: cast.abilityGameID,
         iconUrl: abilityIconUrl(ability?.icon),
         color: CATEGORY_META.get(category)?.color ?? 'var(--text-2)',
         title: ability?.name ?? `Ability #${cast.abilityGameID}`,
@@ -446,6 +472,7 @@ export class Timeline {
         markers.push({
           timeMs,
           kind: 'death',
+          abilityId,
           iconUrl: null,
           color: DEATH_COLOR,
           title: `${player.name} died`,
@@ -478,6 +505,7 @@ export class Timeline {
         return {
           timeMs,
           kind: 'boss' as const,
+          abilityId: c.abilityGameID,
           iconUrl: abilityIconUrl(ability?.icon),
           color: colorById.get(c.abilityGameID) ?? BOSS_COLOR,
           title: ability?.name ?? `Ability #${c.abilityGameID}`,
@@ -542,16 +570,51 @@ export class Timeline {
   }
 
   protected showTip(event: MouseEvent, marker: TimelineMarker): void {
-    this.tip.set({
+    if (this.tip()?.pinned) {
+      return;
+    }
+    this.tip.set(this.tipFor(event, marker, false));
+  }
+
+  protected hideTip(): void {
+    if (!this.tip()?.pinned) {
+      this.tip.set(null);
+    }
+  }
+
+  /**
+   * Clicking a marker parks its card open so the Wowhead link inside can be
+   * reached — the widget has no API to show a tooltip on demand, it only reacts
+   * to hovering a link, so the card has to stay put long enough to move onto.
+   */
+  protected pinTip(event: MouseEvent, marker: TimelineMarker): void {
+    event.stopPropagation();
+    const current = this.tip();
+    if (current?.pinned && current.title === marker.title && current.sub === marker.sub) {
+      this.tip.set(null);
+      return;
+    }
+    this.tip.set(this.tipFor(event, marker, true));
+  }
+
+  protected unpinTip(): void {
+    if (this.tip()?.pinned) {
+      this.tip.set(null);
+    }
+  }
+
+  private tipFor(event: MouseEvent, marker: TimelineMarker, pinned: boolean): Tooltip {
+    return {
       x: Math.min(event.clientX + 14, window.innerWidth - 240),
       y: event.clientY + 16,
       title: marker.title,
       sub: marker.sub,
-    });
-  }
-
-  protected hideTip(): void {
-    this.tip.set(null);
+      url:
+        marker.abilityId !== null && marker.abilityId > 1
+          ? `https://www.wowhead.com/spell=${marker.abilityId}`
+          : null,
+      pinned,
+    };
   }
 
   protected onIconError(event: Event): void {

@@ -45,28 +45,50 @@
             @if (row.iconUrl) {
               <img class="row-icon" [src]="row.iconUrl" (error)="onIconError($event)" alt="" />
             }
-            <span class="l1" [style.color]="row.labelColor">{{ row.label }}</span>
+            @if (row.wowheadUrl) {
+              <a
+                appWowhead
+                class="l1"
+                [style.color]="row.labelColor"
+                [href]="row.wowheadUrl"
+                target="_blank"
+                rel="noreferrer"
+                >{{ row.label }}</a
+              >
+            } @else {
+              <span class="l1" [style.color]="row.labelColor">{{ row.label }}</span>
+            }
             <span class="l2">{{ row.sublabel }}</span>
           </div>
           <div class="track" [style.background-size]="gridSize()">
             @if (row.shadeMs !== null) {
               <div class="shade" [style.width.px]="x(row.shadeMs)"></div>
             }
+            <!--
+              eslint-disable @angular-eslint/template/click-events-have-key-events,
+              @angular-eslint/template/interactive-supports-focus --
+              A pull renders thousands of markers. Making each one focusable
+              would put thousands of stops in the tab order, which is worse for
+              keyboard users than leaving them out; every marker's information
+              is also reachable from the analysis panel. Proper keyboard
+              traversal of the track needs a roving tabindex (plan item C4).
+            -->
             @for (marker of row.markers; track $index) {
               @switch (marker.kind) {
                 @case ('death') {
                   <span
-                    class="death"
+                    class="death clickable"
                     [class.dimmed]="isDimmed(marker)"
                     [style.left.px]="x(marker.timeMs)"
                     (mouseenter)="showTip($event, marker)"
                     (mouseleave)="hideTip()"
+                    (click)="pinTip($event, marker)"
                     >💀</span
                   >
                 }
                 @case ('boss') {
                   <img
-                    class="marker boss-marker"
+                    class="marker boss-marker clickable"
                     [class.mini]="row.kind === 'pull'"
                     [class.laned]="marker.lane !== undefined"
                     [class.dimmed]="isDimmed(marker)"
@@ -76,19 +98,21 @@
                     [style.border-color]="marker.color"
                     (mouseenter)="showTip($event, marker)"
                     (mouseleave)="hideTip()"
+                    (click)="pinTip($event, marker)"
                     (error)="onIconError($event)"
                     alt=""
                   />
                 }
                 @default {
                   <img
-                    class="marker"
+                    class="marker clickable"
                     [class.dimmed]="isDimmed(marker)"
                     [src]="marker.iconUrl"
                     [style.left.px]="x(marker.timeMs)"
                     [style.border-color]="marker.color"
                     (mouseenter)="showTip($event, marker)"
                     (mouseleave)="hideTip()"
+                    (click)="pinTip($event, marker)"
                     (error)="onIconError($event)"
                     alt=""
                   />
@@ -126,9 +150,18 @@
   </div>
 
   @if (tip(); as t) {
-    <div class="tooltip" [style.left.px]="t.x" [style.top.px]="t.y">
+    <div class="tooltip" [class.pinned]="t.pinned" [style.left.px]="t.x" [style.top.px]="t.y">
       <div class="t1">{{ t.title }}</div>
       <div class="t2">{{ t.sub }}</div>
+      @if (t.pinned) {
+        @if (t.url) {
+          <a appWowhead class="t-link" [href]="t.url" target="_blank" rel="noreferrer">
+            Wowhead tooltip ↗
+          </a>
+        } @else {
+          <span class="t-none">No spell linked</span>
+        }
+      }
     </div>
   }
 </div>
