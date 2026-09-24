@@ -110,15 +110,21 @@ export class UrlStateService {
       await this.store.selectPull(pull);
     }
 
+    // An absent parameter means "not this", not "leave it as it was": otherwise
+    // opening a shared link shows the recipient their own leftover view.
     const player = toId(params.get('player'));
     if (player !== null && this.store.players().some((p) => p.id === player)) {
       await this.store.selectPlayer(player);
+    } else if (player === null) {
+      this.store.showPullView();
     }
 
     const analysis = params.get('analysis');
     if (analysis === 'pull' || analysis === 'all') {
       this.store.analysisScope.set(analysis);
       this.store.showAnalysis.set(true);
+    } else {
+      this.store.showAnalysis.set(false);
     }
   }
 }
