@@ -1235,5 +1235,51 @@
       "pattern": "rebirth|raise ally|soulstone|intercession",
       "flags": "i"
     }
+  },
+  "readiness": {
+    "raidBuffs": [
+      {
+        "id": 1459,
+        "name": "Arcane Intellect",
+        "label": "Intellect",
+        "from": "Mage"
+      },
+      {
+        "id": 21562,
+        "name": "Power Word: Fortitude",
+        "label": "Stamina",
+        "from": "Priest"
+      },
+      {
+        "id": 6673,
+        "name": "Battle Shout",
+        "label": "Attack Power",
+        "from": "Warrior"
+      },
+      {
+        "id": 1126,
+        "name": "Mark of the Wild",
+        "label": "Versatility",
+        "from": "Druid"
+      },
+      {
+        "id": 462854,
+        "name": "Skyfury",
+        "label": "Skyfury",
+        "from": "Shaman"
+      }
+    ],
+    "flaskPattern": {
+      "pattern": "\\bflask\\b|\\bphial\\b",
+      "flags": "i"
+    },
+    "foodPattern": {
+      "pattern": "well fed",
+      "flags": "i"
+    },
+    "runePattern": {
+      "pattern": "augment rune|\\bvantus rune\\b",
+      "flags": "i"
+    }
   }
 }

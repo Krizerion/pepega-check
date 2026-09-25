@@ -17,6 +17,7 @@ import { buildDeathLeaderboard, buildDeathRows } from '../../core/analysis/death
 import { buildSummaryMarkdown } from '../../core/analysis/export';
 import { buildPhaseWipeRows, phaseWipeHeadline } from '../../core/analysis/phases';
 import { buildRaidCooldowns, pullsWithoutLust } from '../../core/analysis/raid-cooldowns';
+import { buildReadiness } from '../../core/analysis/readiness';
 import { SortState, nextSort, sortRows } from '../../core/analysis/sort';
 import {
   AnalysisInput,
@@ -24,6 +25,7 @@ import {
   DeathRow,
   RaidCooldownUse,
   RaidCooldowns,
+  ReadinessReport,
 } from '../../core/analysis/types';
 import { buildUtilityRows } from '../../core/analysis/utility';
 import { classColor } from '../../core/data/wow';
@@ -114,6 +116,7 @@ export class PullAnalysis {
       untracked(() => {
         if (pull && open) {
           void this.store.ensureHealing(pull.id);
+          void this.store.ensureCombatantInfo(pull.id);
         }
       });
     });
@@ -246,6 +249,47 @@ export class PullAnalysis {
   protected readonly avoidableTotal = computed(() =>
     this.avoidable().reduce((sum, row) => sum + row.damage, 0),
   );
+
+  /**
+   * What the raid brought to the selected pull.
+   *
+   * Per pull only: the snapshot is one request each, and asking for forty of
+   * them to answer "was everyone flasked" is exactly the fan-out the request
+   * limiter exists to prevent.
+   */
+  protected readonly readiness = computed<ReadinessReport | null>(() => {
+    const pull = this.store.selectedPull();
+    const report = this.store.report();
+    if (!pull || !report) {
+      return null;
+    }
+    const info = this.store.combatantInfoByFight().get(pull.id);
+    if (!info) {
+      return null;
+    }
+    return buildReadiness(
+      pull,
+      { players: this.store.players(), abilities: report.abilities },
+      info,
+    );
+  });
+
+  protected readonly readinessLoading = computed(() => {
+    const pull = this.store.selectedPull();
+    return pull ? this.store.loadingCombatantInfo().has(pull.id) : false;
+  });
+
+  protected readonly readinessFailed = computed(() => {
+    const pull = this.store.selectedPull();
+    return pull ? this.store.failedCombatantInfo().has(pull.id) : false;
+  });
+
+  protected retryReadiness(): void {
+    const pull = this.store.selectedPull();
+    if (pull) {
+      this.store.retryCombatantInfo(pull.id);
+    }
+  }
 
   /** Raid-wide cooldowns: the haste buff and battle rezzes. */
   protected readonly raidCooldowns = computed<RaidCooldowns>(() => {

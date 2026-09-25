@@ -1,5 +1,7 @@
 import {
   CastEvent,
+  CombatantAura,
+  CombatantInfoEvent,
   DamageEvent,
   DeathEvent,
   DispelEvent,
@@ -386,6 +388,7 @@ export interface DemoData {
   damageByFight: Map<number, DamageEvent[]>;
   dispelsByFight: Map<number, DispelEvent[]>;
   healingByFight: Map<number, HealEvent[]>;
+  combatantInfoByFight: Map<number, CombatantInfoEvent[]>;
 }
 
 /** Real healing spell ids, so the demo's heal events link somewhere sensible. */
@@ -460,6 +463,7 @@ export function buildDemoReport(): DemoData {
       ...DEMO_DISPELS.map((d) => ({ ...d, id: d.spellId })),
       ...LUST_OPTIONS,
       ...REZ_OPTIONS,
+      ...DEMO_AURAS,
     ].map((s) => [s.id, { gameID: s.id, name: s.name, icon: s.icon, type: null }]),
   );
   abilities.set(DEMO_DEBUFF_ID, {
@@ -474,6 +478,7 @@ export function buildDemoReport(): DemoData {
   const damageByFight = new Map<number, DamageEvent[]>();
   const dispelsByFight = new Map<number, DispelEvent[]>();
   const healingByFight = new Map<number, HealEvent[]>();
+  const combatantInfoByFight = new Map<number, CombatantInfoEvent[]>();
   let clock = 10 * 60_000;
 
   PULLS.forEach((pull, index) => {
@@ -506,6 +511,7 @@ export function buildDemoReport(): DemoData {
     damageByFight.set(id, damageEvents);
     healingByFight.set(id, healEvents);
     dispelsByFight.set(id, buildDispelEvents(id, players, startTime, endTime));
+    combatantInfoByFight.set(id, buildCombatantInfo(players, startTime, random));
   });
 
   const report: Report = {
@@ -537,7 +543,15 @@ export function buildDemoReport(): DemoData {
     abilities,
   };
 
-  return { report, players, eventsByFight, damageByFight, dispelsByFight, healingByFight };
+  return {
+    report,
+    players,
+    eventsByFight,
+    damageByFight,
+    dispelsByFight,
+    healingByFight,
+    combatantInfoByFight,
+  };
 }
 
 /** Synthetic dispels: the demo's dispel-capable healers cleanse a poison debuff. */
@@ -882,4 +896,69 @@ function cast(
   abilityGameID: number,
 ): CastEvent {
   return { timestamp: Math.round(timestamp), type: 'cast', sourceID, targetID, abilityGameID };
+}
+
+/** Buffs and consumables the demo raid carries into a pull. */
+const DEMO_AURAS = [
+  { id: 1459, name: 'Arcane Intellect', icon: 'spell_holy_magicalsentry.jpg', from: 'Mage' },
+  {
+    id: 21562,
+    name: 'Power Word: Fortitude',
+    icon: 'spell_holy_wordfortitude.jpg',
+    from: 'Priest',
+  },
+  { id: 6673, name: 'Battle Shout', icon: 'ability_warrior_battleshout.jpg', from: 'Warrior' },
+  { id: 1126, name: 'Mark of the Wild', icon: 'spell_nature_regeneration.jpg', from: 'Druid' },
+  { id: 462854, name: 'Skyfury', icon: 'ability_skyreach_wind_wall.jpg', from: 'Shaman' },
+  { id: 431972, name: 'Flask of Alchemical Chaos', icon: 'inv_alchemy_flask_01.jpg', from: '' },
+  { id: 461957, name: 'Well Fed', icon: 'inv_misc_food_legion_lavishsuramarfeast.jpg', from: '' },
+  { id: 453250, name: 'Crystallized Augment Rune', icon: 'inv_10_alchemy_rune.jpg', from: '' },
+];
+
+const FLASK_AURA = DEMO_AURAS[5];
+const FOOD_AURA = DEMO_AURAS[6];
+const RUNE_AURA = DEMO_AURAS[7];
+
+/**
+ * The pull-start snapshot for each raider.
+ *
+ * Deliberately imperfect: a couple of people forget a consumable every pull and
+ * somebody occasionally misses a raid buff, because a readiness card that only
+ * ever renders a wall of ticks shows nothing about whether it works.
+ */
+function buildCombatantInfo(
+  players: PlayerInfo[],
+  startTime: number,
+  random: () => number,
+): CombatantInfoEvent[] {
+  // One raider sits out most pulls, so the "absent" list has something in it.
+  const sittingOut = random() < 0.7 ? players[players.length - 1].id : null;
+  const classesPresent = new Set(
+    players.filter((p) => p.id !== sittingOut).map((p) => p.className),
+  );
+
+  return players
+    .filter((player) => player.id !== sittingOut)
+    .map((player) => {
+      const auras: CombatantAura[] = [];
+
+      for (const buff of DEMO_AURAS.slice(0, 5)) {
+        // A buff nobody brings is a roster gap, not a mistake; otherwise the
+        // odd raider misses one by running in late.
+        if (classesPresent.has(buff.from) && random() > 0.04) {
+          auras.push({ ability: buff.id, name: buff.name, source: player.id, stacks: 1 });
+        }
+      }
+      if (random() > 0.12) {
+        auras.push({ ability: FLASK_AURA.id, name: FLASK_AURA.name, source: player.id, stacks: 1 });
+      }
+      if (random() > 0.2) {
+        auras.push({ ability: FOOD_AURA.id, name: FOOD_AURA.name, source: player.id, stacks: 1 });
+      }
+      if (random() > 0.45) {
+        auras.push({ ability: RUNE_AURA.id, name: RUNE_AURA.name, source: player.id, stacks: 1 });
+      }
+
+      return { timestamp: startTime, sourceID: player.id, auras };
+    });
 }

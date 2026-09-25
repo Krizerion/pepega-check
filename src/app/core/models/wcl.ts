@@ -134,6 +134,27 @@ export interface HealEvent {
   targetResources?: EventResources | null;
 }
 
+/** One aura a raider was carrying when the pull started. */
+export interface CombatantAura {
+  ability: number;
+  name?: string | null;
+  source?: number | null;
+  stacks?: number | null;
+}
+
+/**
+ * A snapshot of one raider taken as the pull begins.
+ *
+ * This is the only place a log says what people turned up *with* — flasks,
+ * food, runes and raid buffs are auras at the pull start, not casts during it,
+ * so nothing else in the app can see them.
+ */
+export interface CombatantInfoEvent {
+  timestamp: number;
+  sourceID: number;
+  auras?: CombatantAura[] | null;
+}
+
 /** Per-player totals for one fight, from the WCL summary tables. */
 export interface PlayerPerformance {
   actorId: number;

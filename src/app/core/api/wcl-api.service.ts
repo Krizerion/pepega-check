@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 
 import {
   CastEvent,
+  CombatantInfoEvent,
   DamageEvent,
   DeathEvent,
   DispelEvent,
@@ -263,6 +264,16 @@ export class WclApiService {
     );
   }
 
+  /**
+   * Each raider's state as the pull begins: the auras they brought.
+   *
+   * Loaded only when the readiness card asks for it. It is one small response
+   * per pull, but it is the only stream nothing else in the app needs.
+   */
+  async fetchCombatantInfo(code: string, fight: ReportFight): Promise<CombatantInfoEvent[]> {
+    return this.fetchAllEvents<CombatantInfoEvent>(code, fight, 'CombatantInfo', 'Friendlies');
+  }
+
   /** Successful dispels by players (failed dispel casts are not included). */
   async fetchDispels(code: string, fight: ReportFight): Promise<DispelEvent[]> {
     return this.fetchAllEvents<DispelEvent>(code, fight, 'Dispels', 'Friendlies');
@@ -376,7 +387,7 @@ export class WclApiService {
   private async fetchAllEvents<T>(
     code: string,
     fight: ReportFight,
-    dataType: 'Casts' | 'Deaths' | 'DamageTaken' | 'Dispels' | 'Healing',
+    dataType: 'Casts' | 'Deaths' | 'DamageTaken' | 'Dispels' | 'Healing' | 'CombatantInfo',
     hostility: 'Friendlies' | 'Enemies',
     withResources = false,
   ): Promise<T[]> {

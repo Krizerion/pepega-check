@@ -4,6 +4,7 @@ import {
   FightEvents,
   HealEvent,
   PlayerInfo,
+  PlayerRole,
   ReportAbility,
   ReportActor,
   ReportFight,
@@ -205,6 +206,45 @@ export interface DeathRow {
   /** Who was healing them, consolidated — one line per healer, not per tick. */
   healers: DeathHealer[];
   healingReceived: number;
+}
+
+/** A consumable a raider was carrying into the pull. */
+export interface ReadinessItem {
+  abilityId: number;
+  name: string;
+  icon: string;
+}
+
+/** A raid-wide buff, named for display. */
+export interface ReadinessBuff {
+  id: number;
+  label: string;
+  name: string;
+  /** Raid-wide gaps only: nobody in the roster brings this buff. */
+  nobodyBrings?: boolean;
+}
+
+/** What one raider turned up with. */
+export interface ReadinessRow {
+  playerId: number;
+  name: string;
+  color: string;
+  role: PlayerRole;
+  flask: ReadinessItem | null;
+  food: ReadinessItem | null;
+  rune: ReadinessItem | null;
+  /** Raid buffs this raider lacked that others had. */
+  missingBuffs: ReadinessBuff[];
+}
+
+export interface ReadinessReport {
+  fightId: number;
+  rows: ReadinessRow[];
+  /** Roster members with no snapshot — they sat this pull out. */
+  absent: { name: string; color: string }[];
+  /** Buffs nobody in the raid had. */
+  raidWideGaps: ReadinessBuff[];
+  counts: { total: number; flask: number; food: number; rune: number };
 }
 
 /** One press of a raid-wide cooldown: the haste buff, or a battle rez. */

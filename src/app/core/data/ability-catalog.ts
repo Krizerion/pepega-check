@@ -108,6 +108,49 @@ export function isBattleRez(spellId: number, name: string | null): boolean {
   return battleRezIds.has(spellId) || (!!name && BATTLE_REZ_PATTERN.test(name));
 }
 
+/** A raid-wide buff everyone is expected to be carrying. */
+export interface RaidBuff {
+  id: number;
+  name: string;
+  label: string;
+  /** The class that brings it, for "nobody here can cast this". */
+  from: string;
+}
+
+export const RAID_BUFFS: RaidBuff[] = catalog.readiness.raidBuffs;
+
+const FLASK_PATTERN = new RegExp(
+  catalog.readiness.flaskPattern.pattern,
+  catalog.readiness.flaskPattern.flags,
+);
+const FOOD_PATTERN = new RegExp(
+  catalog.readiness.foodPattern.pattern,
+  catalog.readiness.foodPattern.flags,
+);
+const RUNE_PATTERN = new RegExp(
+  catalog.readiness.runePattern.pattern,
+  catalog.readiness.runePattern.flags,
+);
+
+/**
+ * Consumables are matched on the aura's name rather than its id.
+ *
+ * Every flask, food and rune is renumbered each patch, and a readiness check
+ * that quietly reports the whole raid as unflasked the week a patch lands is
+ * worse than no check at all.
+ */
+export function isFlask(name: string | null): boolean {
+  return !!name && FLASK_PATTERN.test(name);
+}
+
+export function isFood(name: string | null): boolean {
+  return !!name && FOOD_PATTERN.test(name);
+}
+
+export function isAugmentRune(name: string | null): boolean {
+  return !!name && RUNE_PATTERN.test(name);
+}
+
 /** Classifies a player's cast; returns null for uninteresting (rotational) spells. */
 export function classifyAbility(spellId: number, name: string | null): AbilityCategory | null {
   const byId = categoryBySpellId.get(spellId);

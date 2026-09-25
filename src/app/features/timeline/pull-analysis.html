@@ -451,6 +451,119 @@
     </section>
   }
 
+  @if (scope() === 'pull') {
+    <section class="card">
+      <button class="card-head" (click)="toggleSection('readiness')">
+        <span class="chev" [class.open]="isOpen('readiness')">▸</span>
+        <span class="card-title">Raid readiness</span>
+        @if (readiness(); as r) {
+          <span class="card-meta">
+            {{ r.counts.flask }}/{{ r.counts.total }} flasked · {{ r.counts.food }}/{{
+              r.counts.total
+            }}
+            fed
+          </span>
+        }
+      </button>
+      @if (isOpen('readiness')) {
+        <div class="card-body">
+          <p class="hint">
+            What people turned up with, taken from the snapshot Warcraft Logs writes as the pull
+            starts. Consumables are matched by name, so a fresh patch's flask still counts.
+          </p>
+
+          @if (readinessFailed()) {
+            <p class="hint heal-failed">
+              Readiness could not be loaded for this pull.
+              <button class="link-btn" (click)="retryReadiness()">Try again</button>
+            </p>
+          } @else if (!readiness()) {
+            <p class="loading inline">
+              <span class="mini-spinner"></span> Loading what the raid brought…
+            </p>
+          } @else if (readiness(); as r) {
+            @if (r.rows.length === 0) {
+              <!--
+                No snapshot for anyone. That is a property of the log, not of
+                the raid, and saying "everybody sat out" would be a lie.
+              -->
+              <p class="hint none-note">
+                This log carries no pull-start snapshot, so there is nothing to check. Older logs
+                and some client versions do not record one.
+              </p>
+            } @else {
+              @if (r.raidWideGaps.length > 0) {
+                <p class="hint warn-note">
+                  <strong>Nobody had</strong>
+                  @for (buff of r.raidWideGaps; track buff.id) {
+                    <span class="tally"
+                      >{{ buff.name }}{{ buff.nobodyBrings ? ' (none in raid)' : '' }}</span
+                    >
+                  }
+                </p>
+              }
+              @if (r.absent.length > 0) {
+                <p class="hint">
+                  <strong>Sat this pull out:</strong>
+                  @for (player of r.absent; track player.name) {
+                    <span class="tally" [style.color]="player.color">{{ player.name }}</span>
+                  }
+                </p>
+              }
+
+              <table class="readiness">
+                <thead>
+                  <tr>
+                    <th>Raider</th>
+                    <th class="mid">Flask</th>
+                    <th class="mid">Food</th>
+                    <th class="mid">Rune</th>
+                    <th>Missing buffs</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (row of r.rows; track row.playerId) {
+                    <tr>
+                      <td class="who" [style.color]="row.color">{{ row.name }}</td>
+                      <td class="mid">
+                        @if (row.flask) {
+                          <span class="yes" [title]="row.flask.name">✓</span>
+                        } @else {
+                          <span class="no" title="No flask">✕</span>
+                        }
+                      </td>
+                      <td class="mid">
+                        @if (row.food) {
+                          <span class="yes" [title]="row.food.name">✓</span>
+                        } @else {
+                          <span class="no" title="No food buff">✕</span>
+                        }
+                      </td>
+                      <td class="mid">
+                        @if (row.rune) {
+                          <span class="yes" [title]="row.rune.name">✓</span>
+                        } @else {
+                          <span class="dash" title="No augment rune">–</span>
+                        }
+                      </td>
+                      <td class="missing">
+                        @for (buff of row.missingBuffs; track buff.id) {
+                          <span class="tally">{{ buff.name }}</span>
+                        } @empty {
+                          <span class="ago">—</span>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          }
+        </div>
+      }
+    </section>
+  }
+
   @if (raidCooldowns().lust.length > 0 || raidCooldowns().battleRez.length > 0) {
     <section class="card">
       <button class="card-head" (click)="toggleSection('raidcds')">

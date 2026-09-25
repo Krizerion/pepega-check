@@ -1341,3 +1341,57 @@ td a {
     font-weight: 700;
   }
 }
+
+/* ---------- raid readiness ---------- */
+
+.readiness {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+
+  th {
+    text-align: left;
+    padding: 4px 6px;
+    color: var(--text-2);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid var(--border);
+  }
+
+  td {
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--bg-2);
+  }
+
+  .mid {
+    text-align: center;
+    width: 56px;
+  }
+
+  .who {
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .yes {
+    color: var(--success);
+  }
+
+  /* Missing a flask or food is a real miss; a rune is optional, so it greys. */
+  .no {
+    color: var(--danger);
+    font-weight: 700;
+  }
+
+  .dash {
+    color: var(--text-2);
+  }
+
+  .missing {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    color: var(--warn);
+  }
+}

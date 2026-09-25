@@ -3,6 +3,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { WclApiService } from '../api/wcl-api.service';
 import { DEMO_REPORT_CODE, buildDemoPerformance, buildDemoReport } from '../data/demo-report';
 import {
+  CombatantInfoEvent,
   DamageEvent,
   DispelEvent,
   FightEvents,
@@ -45,6 +46,11 @@ export class ReportDataStore {
   /** Pulls whose healing fetch failed, so the UI can offer a retry. */
   readonly failedHealing = signal<ReadonlySet<number>>(new Set());
 
+  /** Loaded per pull on demand, and only for the readiness card. */
+  readonly combatantInfoByFight = signal<ReadonlyMap<number, CombatantInfoEvent[]>>(new Map());
+  readonly loadingCombatantInfo = signal<ReadonlySet<number>>(new Set());
+  readonly failedCombatantInfo = signal<ReadonlySet<number>>(new Set());
+
   /**
    * Bumped whenever the held report is replaced. A fetch started for the old
    * report can still be in flight when the new one arrives; without this, its
@@ -56,11 +62,13 @@ export class ReportDataStore {
   private readonly inflightDamage = new Map<number, Promise<void>>();
   private readonly inflightPerformance = new Map<number, Promise<void>>();
   private readonly inflightHealing = new Map<number, Promise<void>>();
+  private readonly inflightCombatantInfo = new Map<number, Promise<void>>();
 
   private demoEvents: Map<number, FightEvents> | null = null;
   private demoDamage: Map<number, DamageEvent[]> | null = null;
   private demoDispels: Map<number, DispelEvent[]> | null = null;
   private demoHealing: Map<number, HealEvent[]> | null = null;
+  private demoCombatantInfo: Map<number, CombatantInfoEvent[]> | null = null;
   private readonly playerDetailsCache = new Map<string, PlayerInfo[]>();
 
   eventsFor(fightId: number): FightEvents | null {
@@ -82,6 +90,7 @@ export class ReportDataStore {
         this.demoDamage = demo.damageByFight;
         this.demoDispels = demo.dispelsByFight;
         this.demoHealing = demo.healingByFight;
+        this.demoCombatantInfo = demo.combatantInfoByFight;
       } else {
         const report = await this.api.fetchReport(code);
         if (report.fights.length === 0) {
@@ -143,6 +152,21 @@ export class ReportDataStore {
     await this.once(this.inflightHealing, fightId, this.healingByFight().has(fightId), () =>
       this.fetchHealing(fightId),
     );
+  }
+
+  async ensureCombatantInfo(fightId: number): Promise<void> {
+    await this.once(
+      this.inflightCombatantInfo,
+      fightId,
+      this.combatantInfoByFight().has(fightId),
+      () => this.fetchCombatantInfo(fightId),
+    );
+  }
+
+  /** Forgets a failed readiness fetch so `ensureCombatantInfo` will try again. */
+  retryCombatantInfo(fightId: number): void {
+    this.failedCombatantInfo.update((set) => without(set, fightId));
+    void this.ensureCombatantInfo(fightId);
   }
 
   async ensurePerformance(fightId: number): Promise<void> {
@@ -280,6 +304,32 @@ export class ReportDataStore {
     void this.ensureHealing(fightId);
   }
 
+  private async fetchCombatantInfo(fightId: number): Promise<void> {
+    const target = this.fightFor(fightId);
+    if (!target) {
+      return;
+    }
+    const { report, fight } = target;
+    const gen = this.generation;
+    this.loadingCombatantInfo.update((set) => new Set(set).add(fightId));
+    this.failedCombatantInfo.update((set) => without(set, fightId));
+    try {
+      const info =
+        this.demoCombatantInfo?.get(fightId) ??
+        (await this.api.fetchCombatantInfo(report.code, fight));
+      this.ifCurrent(gen, () =>
+        this.combatantInfoByFight.update((map) => new Map(map).set(fightId, info)),
+      );
+    } catch (e) {
+      this.ifCurrent(gen, () => {
+        this.failedCombatantInfo.update((set) => new Set(set).add(fightId));
+        this.error.set(e instanceof Error ? e.message : 'Failed to load raid readiness.');
+      });
+    } finally {
+      this.loadingCombatantInfo.update((set) => without(set, fightId));
+    }
+  }
+
   private async fetchPerformance(fightId: number): Promise<void> {
     const target = this.fightFor(fightId);
     if (!target) {
@@ -314,15 +364,20 @@ export class ReportDataStore {
     this.healingByFight.set(new Map());
     this.loadingHealing.set(new Set());
     this.failedHealing.set(new Set());
+    this.combatantInfoByFight.set(new Map());
+    this.loadingCombatantInfo.set(new Set());
+    this.failedCombatantInfo.set(new Set());
     this.inflightEvents.clear();
     this.inflightDamage.clear();
     this.inflightPerformance.clear();
     this.inflightHealing.clear();
+    this.inflightCombatantInfo.clear();
     this.playerDetailsCache.clear();
     this.demoEvents = null;
     this.demoDamage = null;
     this.demoDispels = null;
     this.demoHealing = null;
+    this.demoCombatantInfo = null;
   }
 
   fail(message: string): void {
