@@ -6,6 +6,18 @@
 
   <app-report-form class="report-form" />
 
+  <!--
+    Attribution has to stay visible while data is on screen, and the app bar is
+    the only chrome that is always there. A footer would cost vertical pixels
+    the timeline needs. Hidden on phones, where Settings carries it instead.
+  -->
+  <nav class="meta" aria-label="Attribution and legal">
+    <a href="https://www.warcraftlogs.com" target="_blank" rel="noreferrer">
+      <span class="long">Data from </span>Warcraft Logs
+    </a>
+    <a href="privacy.html" target="_blank" rel="noreferrer">Privacy</a>
+  </nav>
+
   <button
     class="icon-btn"
     (click)="shell.settingsOpen.set(true)"
@@ -76,6 +88,17 @@
         <li>Pick a boss and a pull, then switch between Timeline, Raider and Analysis.</li>
       </ol>
       <p class="demo-hint">No credentials handy? Try the demo report from the box above.</p>
+
+      <p class="legal">
+        Data from
+        <a href="https://www.warcraftlogs.com" target="_blank" rel="noreferrer">Warcraft Logs</a> ·
+        spell tooltips by
+        <a href="https://www.wowhead.com" target="_blank" rel="noreferrer">Wowhead</a> ·
+        <a href="privacy.html" target="_blank" rel="noreferrer">privacy policy</a>
+        <br />
+        An unofficial fan project, not affiliated with Warcraft Logs, Wowhead or Blizzard
+        Entertainment.
+      </p>
     </div>
   }
 }

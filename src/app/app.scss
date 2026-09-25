@@ -43,6 +43,25 @@
   flex: 0 0 auto;
 }
 
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+  font-size: 12px;
+  white-space: nowrap;
+
+  a {
+    color: var(--text-2);
+    text-decoration: none;
+
+    &:hover {
+      color: var(--text-1);
+      text-decoration: underline;
+    }
+  }
+}
+
 .error-banner {
   display: flex;
   align-items: center;
@@ -139,6 +158,15 @@
   .demo-hint {
     color: var(--text-2);
   }
+
+  .legal {
+    margin-top: 28px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    color: var(--text-2);
+    font-size: 12px;
+    line-height: 1.7;
+  }
 }
 
 /* ---------- responsive ---------- */
@@ -146,6 +174,11 @@
 /* The rail costs more than it gives once the canvas gets tight, so it turns
    into an overlay opened from the context bar. */
 @media (max-width: 1080px) {
+  /* Keep the attribution, drop the sentence around it. */
+  .meta .long {
+    display: none;
+  }
+
   .rail {
     position: absolute;
     top: 0;
@@ -186,6 +219,11 @@
   }
 
   .brand-name {
+    display: none;
+  }
+
+  /* No room next to the report field; Settings carries attribution here. */
+  .meta {
     display: none;
   }
 

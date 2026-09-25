@@ -70,6 +70,15 @@ import { WclAuthService } from '../../core/api/wcl-auth.service';
           <button (click)="closed.emit()">Close</button>
           <button class="primary" (click)="save()">Save</button>
         </div>
+
+        <!-- The app bar hides its attribution on phones; this is where it lands. -->
+        <p class="legal">
+          Data from
+          <a href="https://www.warcraftlogs.com" target="_blank" rel="noreferrer">Warcraft Logs</a>
+          · tooltips by
+          <a href="https://www.wowhead.com" target="_blank" rel="noreferrer">Wowhead</a> ·
+          <a href="privacy.html" target="_blank" rel="noreferrer">privacy policy</a>
+        </p>
       </div>
     </div>
   `,
@@ -147,6 +156,19 @@ import { WclAuthService } from '../../core/api/wcl-auth.service';
       .danger {
         border-color: rgba(229, 72, 77, 0.5);
         color: #ff9b9e;
+      }
+    }
+
+    .legal {
+      margin: 4px 0 0;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      color: var(--text-2);
+      font-size: 11.5px;
+      line-height: 1.6;
+
+      a {
+        color: var(--text-2);
       }
     }
   `,

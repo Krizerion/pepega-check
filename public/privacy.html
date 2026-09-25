@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Privacy Policy — Pepega Check</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <style>
+      :root {
+        --bg-0: #101014;
+        --bg-1: #17171c;
+        --bg-2: #1f1f26;
+        --border: #33333e;
+        --text-0: #f2f2f5;
+        --text-1: #c7c7d1;
+        --text-2: #8b8b98;
+        --accent: #7c5cff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 0 20px 64px;
+        background: var(--bg-0);
+        color: var(--text-1);
+        font-family:
+          'Segoe UI',
+          system-ui,
+          -apple-system,
+          Roboto,
+          sans-serif;
+        font-size: 15px;
+        line-height: 1.6;
+      }
+
+      main {
+        max-width: 720px;
+        margin: 0 auto;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 18px 0;
+        margin-bottom: 18px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      header .brand {
+        font-weight: 700;
+        font-size: 15px;
+        color: var(--text-0);
+        text-decoration: none;
+      }
+
+      header .back {
+        margin-left: auto;
+        font-size: 13.5px;
+      }
+
+      h1 {
+        color: var(--text-0);
+        font-size: 26px;
+        margin: 8px 0 4px;
+      }
+
+      h2 {
+        color: var(--text-0);
+        font-size: 17px;
+        margin: 30px 0 8px;
+      }
+
+      .updated {
+        color: var(--text-2);
+        font-size: 13px;
+        margin: 0 0 8px;
+      }
+
+      a {
+        color: var(--accent);
+      }
+
+      li {
+        margin: 7px 0;
+      }
+
+      code {
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 1px 5px;
+        font-size: 13px;
+      }
+
+      .callout {
+        background: var(--bg-1);
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--accent);
+        border-radius: 8px;
+        padding: 14px 16px;
+        margin: 18px 0;
+      }
+
+      .callout p {
+        margin: 0;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 14px;
+      }
+
+      th,
+      td {
+        text-align: left;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+      }
+
+      th {
+        color: var(--text-0);
+        font-weight: 600;
+      }
+
+      footer {
+        margin-top: 44px;
+        padding-top: 18px;
+        border-top: 1px solid var(--border);
+        color: var(--text-2);
+        font-size: 13px;
+      }
+
+      @media (max-width: 600px) {
+        body {
+          padding: 0 14px 48px;
+          font-size: 14.5px;
+        }
+
+        h1 {
+          font-size: 22px;
+        }
+
+        table {
+          font-size: 13px;
+        }
+
+        th,
+        td {
+          padding: 7px 6px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <span aria-hidden="true">🐸</span>
+        <a class="brand" href="./">Pepega Check</a>
+        <a class="back" href="./">← Back to the app</a>
+      </header>
+
+      <h1>Privacy Policy</h1>
+      <p class="updated">Last updated: 25 September 2026</p>
+
+      <div class="callout">
+        <p>
+          <strong>The short version.</strong> Pepega Check has no server, no database and no
+          analytics. It runs entirely in your browser. Nothing you type or open is sent to us,
+          because there is no &ldquo;us&rdquo; to send it to — we could not read your data even if
+          we wanted to.
+        </p>
+      </div>
+
+      <h2>1. Who runs this site</h2>
+      <p>
+        Pepega Check is a free, personal, non-commercial hobby project maintained by an individual
+        developer. It is an unofficial fan tool. It is not affiliated with, endorsed by or operated
+        by Warcraft Logs / RPGLogs, Wowhead / ZAM Network, or Blizzard Entertainment.
+      </p>
+
+      <h2>2. What the app is</h2>
+      <p>
+        Pepega Check is a static website: a bundle of HTML, CSS and JavaScript files served to your
+        browser. All analysis of your Warcraft Logs reports happens locally, on your own device.
+        There is no backend service that receives, processes or retains your data.
+      </p>
+
+      <h2>3. Data we collect</h2>
+      <p>
+        <strong>None.</strong> We operate no servers, run no analytics or tracking scripts, set no
+        advertising cookies, and maintain no user accounts, profiles or mailing lists.
+      </p>
+
+      <h2>4. Data stored on your own device</h2>
+      <p>
+        The app uses your browser&rsquo;s <code>localStorage</code>. This data never leaves your
+        device except as described in section 5, and is readable only by this site in this browser.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Key</th>
+            <th>What it holds</th>
+            <th>Why</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>pepega-check.wcl-credentials</code></td>
+            <td>Your Warcraft Logs API client ID and client secret, if you enter them</td>
+            <td>So you do not have to re-enter them on every visit</td>
+          </tr>
+          <tr>
+            <td><code>pepega-check.wcl-token</code></td>
+            <td>A short-lived Warcraft Logs access token and its expiry time</td>
+            <td>To avoid requesting a new token on every page load</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        You can erase both at any time with <strong>⚙ Settings → Clear all</strong>, or by clearing
+        site data in your browser. Report contents are held in memory only and are gone as soon as
+        you reload or close the tab.
+      </p>
+
+      <div class="callout">
+        <p>
+          <strong>Please note:</strong> because this is a static site with no backend, your API
+          client secret is stored in your browser and used from your browser. Any browser extension
+          with permission to read this page, or anyone with access to your device and browser
+          profile, could read it. Treat it like a password, and prefer a dedicated Warcraft Logs API
+          client for this app rather than one you use elsewhere.
+        </p>
+      </div>
+
+      <h2>5. Third parties your browser contacts</h2>
+      <p>
+        The app itself sends nothing anywhere, but loading and using it makes your browser talk
+        directly to the services below. Each of them can see your IP address, your user agent and
+        the page that referred you, and each has its own privacy policy that governs what it does
+        with that. We receive none of this information.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Service</th>
+            <th>What it is used for</th>
+            <th>Its policy</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>warcraftlogs.com</code></td>
+            <td>
+              Fetching your report data, and exchanging your client credentials for an access token
+            </td>
+            <td>
+              <a href="https://www.warcraftlogs.com/privacy" target="_blank" rel="noreferrer"
+                >Warcraft Logs</a
+              >
+            </td>
+          </tr>
+          <tr>
+            <td><code>assets.rpglogs.com</code></td>
+            <td>Spell and ability icon images</td>
+            <td>
+              <a href="https://www.warcraftlogs.com/privacy" target="_blank" rel="noreferrer"
+                >Warcraft Logs</a
+              >
+            </td>
+          </tr>
+          <tr>
+            <td><code>wow.zamimg.com</code></td>
+            <td>
+              Wowhead&rsquo;s tooltip script, which shows live spell tooltips when you hover an
+              ability name. It may set its own cookies.
+            </td>
+            <td>
+              <a href="https://www.wowhead.com/privacy-policy" target="_blank" rel="noreferrer"
+                >Wowhead / ZAM</a
+              >
+            </td>
+          </tr>
+          <tr>
+            <td>GitHub Pages</td>
+            <td>
+              Hosting the site&rsquo;s files. GitHub logs requests, including IP addresses, as part
+              of serving them.
+            </td>
+            <td>
+              <a
+                href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement"
+                target="_blank"
+                rel="noreferrer"
+                >GitHub</a
+              >
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        Your Warcraft Logs client secret is sent only to <code>warcraftlogs.com</code>, over HTTPS,
+        and only to obtain an access token. It is never sent to any other destination.
+      </p>
+
+      <h2>6. Shareable links</h2>
+      <p>
+        The app records what you are looking at — report code, boss, pull, selected raider — in the
+        part of the address after the <code>#</code>. That makes a link shareable and a refresh land
+        back where you were. Browsers do not transmit the part after the <code>#</code> to the web
+        server, so it is not logged by our host. It is, however, plainly visible in the link itself:
+        anyone you send a link to can see which report and pull it points at.
+      </p>
+
+      <h2>7. Report data and other people</h2>
+      <p>
+        A Warcraft Logs report describes a group of players. If you open a report, you are viewing
+        data about your raid, not only yourself. That data comes from Warcraft Logs under your own
+        API credentials and subject to their terms — we neither collect nor retain any of it. Please
+        be considerate about sharing links to logs and analysis that name other people.
+      </p>
+
+      <h2>8. Children</h2>
+      <p>
+        This site is not directed at children and collects no personal information from anyone,
+        including children.
+      </p>
+
+      <h2>9. Your rights</h2>
+      <p>
+        Data-protection law gives you rights to access, correct, export and erase personal data held
+        about you. We hold none, so there is nothing for us to produce or delete. The only data
+        involved is on your own device, and you can erase it yourself at any time via
+        <strong>⚙ Settings → Clear all</strong> or by clearing site data in your browser. For the
+        report data itself, exercise those rights with
+        <a href="https://www.warcraftlogs.com" target="_blank" rel="noreferrer">Warcraft Logs</a>,
+        who hold it.
+      </p>
+
+      <h2>10. Changes to this policy</h2>
+      <p>
+        If this policy changes, the &ldquo;last updated&rdquo; date above changes with it. Should
+        the app ever gain a backend, accounts or paid features, this policy will be rewritten and
+        the change noted here before those features go live.
+      </p>
+
+      <h2>11. Contact</h2>
+      <p>
+        Questions about this policy:
+        <a href="mailto:kris.petrov.93&#64;gmail.com">kris.petrov.93&#64;gmail.com</a>
+      </p>
+
+      <footer>
+        <p>
+          Data from
+          <a href="https://www.warcraftlogs.com" target="_blank" rel="noreferrer">Warcraft Logs</a>.
+          Spell tooltips by
+          <a href="https://www.wowhead.com" target="_blank" rel="noreferrer">Wowhead</a>. World of
+          Warcraft is a trademark of Blizzard Entertainment, Inc. Pepega Check is an unofficial fan
+          project and is not affiliated with any of them.
+        </p>
+      </footer>
+    </main>
+  </body>
+</html>
