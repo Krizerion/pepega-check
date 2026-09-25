@@ -118,6 +118,10 @@ export interface DeathMoment {
    */
   hpBefore: number | null;
   hpAfter: number | null;
+  /** The same two readings in absolute health, and the pool they are out of. */
+  hpBeforeRaw: number | null;
+  hpAfterRaw: number | null;
+  maxHp: number | null;
   /** Position across the window, 0-100. */
   pct: number;
   /** Stagger level for markers that would otherwise sit on top of each other. */
@@ -152,6 +156,8 @@ export interface DeathHealGroup {
   casts: number;
   hpBefore: number | null;
   hpAfter: number | null;
+  hpBeforeRaw: number | null;
+  hpAfterRaw: number | null;
   entries: DeathHealEntry[];
 }
 
@@ -193,6 +199,9 @@ export interface DeathRow {
   hpTrace: { x: number; y: number }[];
   /** Health when the window opened, or null if unknown. */
   hpStart: number | null;
+  /** The same reading in absolute health, and the raider's pool. */
+  hpStartRaw: number | null;
+  maxHp: number | null;
   /** Who was healing them, consolidated — one line per healer, not per tick. */
   healers: DeathHealer[];
   healingReceived: number;

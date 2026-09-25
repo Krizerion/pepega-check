@@ -768,9 +768,17 @@ td a {
   position: absolute;
   left: 3px;
   top: 1px;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
   font-size: 10px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+
+  .hp-abs {
+    color: var(--text-2);
+    font-weight: 400;
+  }
 }
 
 /*
@@ -1043,10 +1051,17 @@ td a {
 
 .step-hp {
   display: flex;
-  align-items: center;
-  gap: 5px;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  line-height: 1.25;
   font-variant-numeric: tabular-nums;
+
+  .hp-pct {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
 
   .arrow {
     color: var(--text-2);
@@ -1054,6 +1069,14 @@ td a {
 
   .after {
     font-weight: 700;
+  }
+
+  /* Absolute health sits under the percentage: the percentage is what you read
+     at a glance, the raw number is what you check against a healer's output. */
+  .hp-abs {
+    color: var(--text-2);
+    font-size: 10.5px;
+    white-space: nowrap;
   }
 }
 

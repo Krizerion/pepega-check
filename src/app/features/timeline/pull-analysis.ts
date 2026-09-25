@@ -534,6 +534,18 @@ export class PullAnalysis {
   }
 
   /** Red below a quarter health, amber below half — the colour of the number. */
+  /** "Opened the window at 412k of 450k (92%)", for the trace's start label. */
+  protected hpStartTitle(row: DeathRow): string {
+    if (row.hpStart === null) {
+      return '';
+    }
+    const absolute =
+      row.hpStartRaw !== null && row.maxHp !== null
+        ? ` — ${this.fmt(row.hpStartRaw)} of ${this.fmt(row.maxHp)}`
+        : '';
+    return `Health 12s before the death: ${row.hpStart}%${absolute}`;
+  }
+
   protected hpColor(pct: number | null): string {
     if (pct === null) {
       return 'var(--text-2)';

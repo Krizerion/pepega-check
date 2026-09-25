@@ -87,6 +87,16 @@ export function killingAbilityId(death: DeathEvent): number | null {
   return death.killingAbilityGameID ?? death.abilityGameID ?? null;
 }
 
+/**
+ * Actor state Warcraft Logs attaches to an event, but only when the query asks
+ * for it with `includeResources`. The API service lifts the target's health out
+ * of here onto the event itself, so nothing downstream has to know about it.
+ */
+export interface EventResources {
+  hitPoints?: number | null;
+  maxHitPoints?: number | null;
+}
+
 /** A damage-taken tick on a friendly player. */
 export interface DamageEvent {
   timestamp: number;
@@ -102,6 +112,8 @@ export interface DamageEvent {
    */
   hitPoints?: number | null;
   maxHitPoints?: number | null;
+  /** Where the API actually puts the above, before the service flattens it. */
+  targetResources?: EventResources | null;
   /** Damage past zero — a big overkill means they were chunked, not ground down. */
   overkill?: number | null;
 }
@@ -118,6 +130,8 @@ export interface HealEvent {
   overheal?: number | null;
   hitPoints?: number | null;
   maxHitPoints?: number | null;
+  /** Where the API actually puts the above, before the service flattens it. */
+  targetResources?: EventResources | null;
 }
 
 /** Per-player totals for one fight, from the WCL summary tables. */

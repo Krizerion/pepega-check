@@ -58,7 +58,17 @@ query PlayerDetails($code: String!, $fightIDs: [Int]!) {
   }
 }`;
 
-const EVENTS_QUERY = `
+/**
+ * `includeResources` is what attaches each actor's health to an event. Without
+ * it the damage and healing streams carry no health at all, which is why the
+ * death log could draw a health trace for the bundled demo (which fabricates
+ * the numbers) but not for a real report.
+ *
+ * It roughly doubles the size of an event, so it is only asked for on the two
+ * streams that read health, never on casts or deaths.
+ */
+function eventsQuery(withResources: boolean): string {
+  return `
 query FightEvents(
   $code: String!
   $fightID: Int!
@@ -76,6 +86,7 @@ query FightEvents(
         dataType: $dataType
         hostilityType: $hostility
         useAbilityIDs: true
+        ${withResources ? 'includeResources: true' : ''}
         limit: 10000
       ) {
         data
@@ -84,6 +95,10 @@ query FightEvents(
     }
   }
 }`;
+}
+
+const EVENTS_QUERY = eventsQuery(false);
+const EVENTS_QUERY_WITH_RESOURCES = eventsQuery(true);
 
 const TABLE_QUERY = `
 query Table($code: String!, $fightID: Int!, $dataType: TableDataType!) {
@@ -130,6 +145,9 @@ interface RawPlayerDetails {
 @Injectable({ providedIn: 'root' })
 export class WclApiService {
   private readonly auth = inject(WclAuthService);
+
+  /** Cleared for the session if the API rejects `includeResources`. */
+  private resourcesSupported = true;
 
   async fetchReport(code: string): Promise<Report> {
     const data = await this.query<{
@@ -210,7 +228,9 @@ export class WclApiService {
 
   /** Damage taken by friendly players — the basis for mechanic analysis. */
   async fetchDamageTaken(code: string, fight: ReportFight): Promise<DamageEvent[]> {
-    return this.fetchAllEvents<DamageEvent>(code, fight, 'DamageTaken', 'Friendlies');
+    return flattenTargetHealth(
+      await this.fetchAllEvents<DamageEvent>(code, fight, 'DamageTaken', 'Friendlies', true),
+    );
   }
 
   /**
@@ -219,7 +239,9 @@ export class WclApiService {
    * every pull in an encounter up front.
    */
   async fetchHealing(code: string, fight: ReportFight): Promise<HealEvent[]> {
-    return this.fetchAllEvents<HealEvent>(code, fight, 'Healing', 'Friendlies');
+    return flattenTargetHealth(
+      await this.fetchAllEvents<HealEvent>(code, fight, 'Healing', 'Friendlies', true),
+    );
   }
 
   /** Successful dispels by players (failed dispel casts are not included). */
@@ -337,16 +359,44 @@ export class WclApiService {
     fight: ReportFight,
     dataType: 'Casts' | 'Deaths' | 'DamageTaken' | 'Dispels' | 'Healing',
     hostility: 'Friendlies' | 'Enemies',
+    withResources = false,
   ): Promise<T[]> {
     const events: T[] = [];
     let startTime = fight.startTime;
 
     for (;;) {
+      const page = await this.eventPage<T>(
+        code,
+        fight,
+        dataType,
+        hostility,
+        withResources,
+        startTime,
+      );
+      events.push(...page.data);
+      if (page.nextPageTimestamp === null) {
+        return events;
+      }
+      startTime = page.nextPageTimestamp;
+    }
+  }
+
+  /** One page of events, retrying without resources if the API rejects them. */
+  private async eventPage<T>(
+    code: string,
+    fight: ReportFight,
+    dataType: string,
+    hostility: string,
+    withResources: boolean,
+    startTime: number,
+  ): Promise<{ data: T[]; nextPageTimestamp: number | null }> {
+    const useResources = withResources && this.resourcesSupported;
+    try {
       const data = await this.query<{
         reportData: {
           report: { events: { data: T[]; nextPageTimestamp: number | null } };
         };
-      }>(EVENTS_QUERY, {
+      }>(useResources ? EVENTS_QUERY_WITH_RESOURCES : EVENTS_QUERY, {
         code,
         fightID: fight.id,
         startTime,
@@ -354,13 +404,16 @@ export class WclApiService {
         dataType,
         hostility,
       });
-
-      const page = data.reportData.report.events;
-      events.push(...page.data);
-      if (page.nextPageTimestamp === null) {
-        return events;
+      return data.reportData.report.events;
+    } catch (e) {
+      // Losing the health trace is a far better outcome than losing the events,
+      // so if this deployment's API does not know the argument, drop it and
+      // carry on without health for the rest of the session.
+      if (useResources && e instanceof Error && /includeResources/i.test(e.message)) {
+        this.resourcesSupported = false;
+        return this.eventPage<T>(code, fight, dataType, hostility, false, startTime);
       }
-      startTime = page.nextPageTimestamp;
+      throw e;
     }
   }
 
@@ -392,4 +445,22 @@ export class WclApiService {
     }
     return body.data;
   }
+}
+
+/**
+ * Moves the target's health from the resources block onto the event.
+ *
+ * Warcraft Logs nests it under `targetResources`; everything downstream reads
+ * flat `hitPoints`/`maxHitPoints`, and the bundled demo already produces that
+ * shape, so normalising here keeps one shape in the rest of the app.
+ */
+function flattenTargetHealth<T extends DamageEvent | HealEvent>(events: T[]): T[] {
+  for (const event of events) {
+    const resources = event.targetResources;
+    if (resources && event.hitPoints == null) {
+      event.hitPoints = resources.hitPoints ?? null;
+      event.maxHitPoints = resources.maxHitPoints ?? null;
+    }
+  }
+  return events;
 }

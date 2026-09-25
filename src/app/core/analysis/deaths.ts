@@ -80,6 +80,9 @@ export function buildDeathTimeline(
     absorbed: 0,
     hpBefore: null as number | null,
     hpAfter: null as number | null,
+    hpBeforeRaw: null as number | null,
+    hpAfterRaw: null as number | null,
+    maxHp: null as number | null,
     pct: 0,
     lane: 0,
   };
@@ -106,6 +109,9 @@ export function buildDeathTimeline(
       absorbed: num(hit.absorbed),
       hpBefore: known ? hpPercent(hit.hitPoints! + amount, hit.maxHitPoints) : null,
       hpAfter: hpPercent(hit.hitPoints, hit.maxHitPoints),
+      hpBeforeRaw: known ? hit.hitPoints! + amount : null,
+      hpAfterRaw: known ? hit.hitPoints! : null,
+      maxHp: known ? hit.maxHitPoints! : null,
     });
   }
 
@@ -130,6 +136,9 @@ export function buildDeathTimeline(
       color: source?.color ?? null,
       hpBefore: known ? hpPercent(heal.hitPoints! - healed, heal.maxHitPoints) : null,
       hpAfter: hpPercent(heal.hitPoints, heal.maxHitPoints),
+      hpBeforeRaw: known ? Math.max(0, heal.hitPoints! - healed) : null,
+      hpAfterRaw: known ? heal.hitPoints! : null,
+      maxHp: known ? heal.maxHitPoints! : null,
     });
   }
 
@@ -173,12 +182,15 @@ export function buildDeathTimeline(
    * arithmetic would report them at 7% when they were at 94% a moment earlier.
    */
   let previous: number | null = null;
+  let previousRaw: number | null = null;
   for (const moment of moments) {
     if (previous !== null && moment.hpAfter !== null) {
       moment.hpBefore = previous;
+      moment.hpBeforeRaw = previousRaw;
     }
     if (moment.hpAfter !== null) {
       previous = moment.hpAfter;
+      previousRaw = moment.hpAfterRaw;
     }
     moment.pct = Math.round(
       ((MITIGATION_WINDOW_MS - moment.beforeMs) / MITIGATION_WINDOW_MS) * 100,
@@ -285,6 +297,8 @@ export function buildDeathSteps(moments: readonly DeathMoment[]): DeathStep[] {
       casts: run.length,
       hpBefore: first.hpBefore,
       hpAfter: last.hpAfter,
+      hpBeforeRaw: first.hpBeforeRaw,
+      hpAfterRaw: last.hpAfterRaw,
       entries: [...byKey.values()].sort((a, b) => b.amount - a.amount),
     };
     steps.push({ kind: 'heals', group });
@@ -307,16 +321,22 @@ export function buildDeathSteps(moments: readonly DeathMoment[]): DeathStep[] {
 export function buildHpTrace(moments: readonly DeathMoment[]): {
   trace: { x: number; y: number }[];
   start: number | null;
+  startRaw: number | null;
+  maxHp: number | null;
 } {
   const trace: { x: number; y: number }[] = [];
   let start: number | null = null;
+  let startRaw: number | null = null;
+  let maxHp: number | null = null;
 
   for (const moment of moments) {
     if (moment.hpAfter === null) {
       continue;
     }
+    maxHp ??= moment.maxHp;
     if (start === null && moment.hpBefore !== null) {
       start = moment.hpBefore;
+      startRaw = moment.hpBeforeRaw;
       trace.push({ x: 0, y: moment.hpBefore });
     }
     trace.push({ x: moment.pct, y: moment.hpAfter });
@@ -325,7 +345,7 @@ export function buildHpTrace(moments: readonly DeathMoment[]): {
   if (trace.length > 0) {
     trace.push({ x: 100, y: 0 });
   }
-  return { trace, start };
+  return { trace, start, startRaw, maxHp };
 }
 
 /** Chronological death log for one fight, given precomputed player indexes. */
@@ -364,7 +384,7 @@ function deathRows(
         heals.get(death.targetID) ?? [],
         healerNames,
       );
-      const { trace, start } = buildHpTrace(timeline);
+      const { trace, start, startRaw, maxHp } = buildHpTrace(timeline);
       const healers = consolidateHealers(timeline);
       const steps = buildDeathSteps(timeline);
 
@@ -389,6 +409,8 @@ function deathRows(
           .reduce((sum, moment) => sum + moment.amount, 0),
         hpTrace: trace,
         hpStart: start,
+        hpStartRaw: startRaw,
+        maxHp,
         healers,
         healingReceived: healers.reduce((sum, healer) => sum + healer.amount, 0),
       };

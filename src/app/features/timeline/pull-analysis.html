@@ -598,8 +598,15 @@
                       />
                     </svg>
                     @if (death.hpStart !== null) {
-                      <span class="hp-start" [style.color]="hpColor(death.hpStart)">
+                      <span
+                        class="hp-start"
+                        [style.color]="hpColor(death.hpStart)"
+                        [title]="hpStartTitle(death)"
+                      >
                         {{ death.hpStart }}%
+                        @if (death.hpStartRaw !== null) {
+                          <span class="hp-abs">{{ fmt(death.hpStartRaw) }}</span>
+                        }
                       </span>
                     }
                   }
@@ -672,13 +679,20 @@
                           </span>
                           <span class="step-hp">
                             @if (group.hpBefore !== null && group.hpAfter !== null) {
-                              <span [style.color]="hpColor(group.hpBefore)"
-                                >{{ group.hpBefore }}%</span
-                              >
-                              <span class="arrow">→</span>
-                              <span class="after" [style.color]="hpColor(group.hpAfter)"
-                                >{{ group.hpAfter }}%</span
-                              >
+                              <span class="hp-pct">
+                                <span [style.color]="hpColor(group.hpBefore)"
+                                  >{{ group.hpBefore }}%</span
+                                >
+                                <span class="arrow">→</span>
+                                <span class="after" [style.color]="hpColor(group.hpAfter)"
+                                  >{{ group.hpAfter }}%</span
+                                >
+                              </span>
+                              @if (group.hpBeforeRaw !== null && group.hpAfterRaw !== null) {
+                                <span class="hp-abs">
+                                  {{ fmt(group.hpBeforeRaw) }} → {{ fmt(group.hpAfterRaw) }}
+                                </span>
+                              }
                             }
                           </span>
                           <span class="step-note run-who">
@@ -764,13 +778,20 @@
                           </span>
                           <span class="step-hp">
                             @if (moment.hpBefore !== null && moment.hpAfter !== null) {
-                              <span [style.color]="hpColor(moment.hpBefore)"
-                                >{{ moment.hpBefore }}%</span
-                              >
-                              <span class="arrow">→</span>
-                              <span class="after" [style.color]="hpColor(moment.hpAfter)"
-                                >{{ moment.hpAfter }}%</span
-                              >
+                              <span class="hp-pct">
+                                <span [style.color]="hpColor(moment.hpBefore)"
+                                  >{{ moment.hpBefore }}%</span
+                                >
+                                <span class="arrow">→</span>
+                                <span class="after" [style.color]="hpColor(moment.hpAfter)"
+                                  >{{ moment.hpAfter }}%</span
+                                >
+                              </span>
+                              @if (moment.hpBeforeRaw !== null && moment.hpAfterRaw !== null) {
+                                <span class="hp-abs">
+                                  {{ fmt(moment.hpBeforeRaw) }} → {{ fmt(moment.hpAfterRaw) }}
+                                </span>
+                              }
                             }
                           </span>
                           <span class="step-note">
