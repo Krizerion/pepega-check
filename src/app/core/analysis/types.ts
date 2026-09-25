@@ -240,8 +240,6 @@ export interface ReadinessRow {
 export interface ReadinessReport {
   fightId: number;
   rows: ReadinessRow[];
-  /** Roster members with no snapshot — they sat this pull out. */
-  absent: { name: string; color: string }[];
   /** Buffs nobody in the raid had. */
   raidWideGaps: ReadinessBuff[];
   counts: { total: number; flask: number; food: number; rune: number };

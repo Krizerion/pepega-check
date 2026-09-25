@@ -3,6 +3,7 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  Injector,
   afterNextRender,
   computed,
   effect,
@@ -34,6 +35,12 @@ import { ReportFight, fightDuration, formatOffset } from '../../core/models/wcl'
 import { ReportStore } from '../../core/state/report-store';
 import { WowheadLink } from '../../core/wowhead/wowhead-tooltip';
 
+/** A collapsible card in the panel, for collapse-all and the jump links. */
+interface AnalysisSection {
+  id: string;
+  label: string;
+}
+
 interface PerformanceRow {
   name: string;
   color: string;
@@ -62,6 +69,8 @@ interface PerformanceRow {
 export class PullAnalysis {
   protected readonly store = inject(ReportStore);
   private readonly notify = inject(NotifyService);
+  private readonly injector = inject(Injector);
+  private readonly host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
   protected readonly format = formatOffset;
   /** Shared with the URL so an analysis view can be linked. */
   protected readonly scope = this.store.analysisScope;
@@ -91,11 +100,13 @@ export class PullAnalysis {
 
   constructor() {
     // Publish the sticky header's height so table headers can clear it.
-    const host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
+    const host = this.host;
     const destroyRef = inject(DestroyRef);
     afterNextRender(() => {
       const top = host.querySelector('.panel-top');
-      if (!top) {
+      // Absent in jsdom, and the header offset is a nicety rather than a
+      // requirement, so the panel still works without it.
+      if (!top || typeof ResizeObserver === 'undefined') {
         return;
       }
       const observer = new ResizeObserver(([entry]) => {
@@ -495,15 +506,35 @@ export class PullAnalysis {
     this.collapsed.set(next);
   }
 
-  /** All section ids currently rendered, for collapse/expand all. */
-  protected readonly sectionIds = computed(() => [
-    ...(this.phaseRows().length > 0 ? ['phases'] : []),
-    'performance',
-    'avoidable',
-    ...this.mechanicGroups().map((g) => `mech:${g.phase}`),
-    'utility',
-    'deaths',
-  ]);
+  /**
+   * Every section on screen, in the order they appear.
+   *
+   * This drives collapse-all and the header's jump links, so a card missing
+   * from here is a card those two silently ignore — which is exactly what
+   * happened to the readiness and raid-cooldown cards. `pull-analysis.spec.ts`
+   * now checks this against the template so it cannot drift again.
+   */
+  protected readonly sections = computed<AnalysisSection[]>(() => {
+    const pull = this.scope() === 'pull';
+    const hasDeaths = pull ? this.deathRows().length > 0 : this.deathLeaderboard().length > 0;
+    return [
+      ...(this.phaseRows().length > 0 ? [{ id: 'phases', label: 'Phases' }] : []),
+      ...(this.performance().length > 0 ? [{ id: 'performance', label: 'Performance' }] : []),
+      ...(this.avoidable().length > 0 ? [{ id: 'avoidable', label: 'Avoidable' }] : []),
+      ...this.mechanicGroups().map((g) => ({
+        id: `mech:${g.phase}`,
+        label: g.label ?? 'Mechanics',
+      })),
+      ...(pull ? [{ id: 'readiness', label: 'Readiness' }] : []),
+      ...(this.raidCooldowns().lust.length > 0 || this.raidCooldowns().battleRez.length > 0
+        ? [{ id: 'raidcds', label: 'Lust & rez' }]
+        : []),
+      ...(this.utility().length > 0 ? [{ id: 'utility', label: 'Utility' }] : []),
+      ...(hasDeaths ? [{ id: 'deaths', label: 'Deaths' }] : []),
+    ];
+  });
+
+  protected readonly sectionIds = computed(() => this.sections().map((s) => s.id));
 
   protected readonly allCollapsed = computed(() => {
     const collapsed = this.collapsed();
@@ -512,6 +543,34 @@ export class PullAnalysis {
 
   protected toggleAllSections(): void {
     this.collapsed.set(this.allCollapsed() ? new Set() : new Set(this.sectionIds()));
+  }
+
+  /**
+   * Opens a section if it is collapsed, then brings it to the top.
+   *
+   * The panel scrolls inside itself and has a sticky header, so
+   * `scrollIntoView` would park the card head underneath that header. The
+   * offset is read from the same custom property the header publishes.
+   */
+  protected jumpTo(id: string): void {
+    if (!this.isOpen(id)) {
+      this.toggleSection(id);
+    }
+    const host = this.host;
+    // Let the section render before measuring where it ended up.
+    afterNextRender(
+      () => {
+        const target = host.querySelector<HTMLElement>(`[data-section="${cssEscape(id)}"]`);
+        const scroller = host.querySelector<HTMLElement>('.panel');
+        if (!target || !scroller) {
+          return;
+        }
+        const top = parseInt(getComputedStyle(host).getPropertyValue('--top-h'), 10) || 0;
+        const delta = target.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+        scroller.scrollTo({ top: scroller.scrollTop + delta - top - 8, behavior: 'smooth' });
+      },
+      { injector: this.injector },
+    );
   }
 
   protected sortBy(state: typeof this.perfSort, key: string): void {
@@ -691,4 +750,9 @@ export class PullAnalysis {
     }
     setTimeout(() => this.copyState.set('idle'), 2000);
   }
+}
+
+/** Escapes a section id for use in a CSS attribute selector. */
+function cssEscape(value: string): string {
+  return typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(value) : value;
 }

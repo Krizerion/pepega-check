@@ -68,6 +68,26 @@
         {{ allCollapsed() ? 'Expand all' : 'Collapse all' }}
       </button>
     </div>
+
+    <!--
+      Jump links. The panel is long enough that finding a card means scrolling
+      past several others, so this is the table of contents. A collapsed target
+      is opened on the way, otherwise the jump lands on a closed header.
+    -->
+    @if (sections().length > 1) {
+      <nav class="jumps" aria-label="Jump to section">
+        @for (section of sections(); track section.id) {
+          <button
+            class="jump"
+            [class.shut]="!isOpen(section.id)"
+            (click)="jumpTo(section.id)"
+            [title]="isOpen(section.id) ? 'Jump to ' + section.label : 'Open ' + section.label"
+          >
+            {{ section.label }}
+          </button>
+        }
+      </nav>
+    }
   </div>
 
   @if (!ready()) {
@@ -83,14 +103,14 @@
   }
 
   @if (phaseRows().length > 0) {
-    <section class="card">
+    <section class="card" data-section="phases">
       <button class="card-head" (click)="toggleSection('phases')">
         <span class="chev" [class.open]="isOpen('phases')">▸</span>
         <span class="card-title">Where pulls end</span>
         <span class="card-meta">{{ phaseRows().length }} phases</span>
       </button>
       @if (isOpen('phases')) {
-        <div class="card-body">
+        <div class="card-body" animate.enter="body-enter" animate.leave="body-leave">
           <p class="hint">
             Which phase is costing the night: how many pulls entered it, got past it, and ended
             there. The death window is where the middle half of that phase's deaths land, measured
@@ -186,14 +206,14 @@
   }
 
   @if (performance().length > 0) {
-    <section class="card">
+    <section class="card" data-section="performance">
       <button class="card-head" (click)="toggleSection('performance')">
         <span class="chev" [class.open]="isOpen('performance')">▸</span>
         <span class="card-title">Overall performance</span>
         <span class="card-meta">{{ performance().length }} raiders</span>
       </button>
       @if (isOpen('performance')) {
-        <div class="card-body">
+        <div class="card-body" animate.enter="body-enter" animate.leave="body-leave">
           @if (performanceIgnoresCutoff()) {
             <p class="hint disclaimer">
               <strong>⚠ These totals cover the whole pull.</strong> Damage and healing come from
@@ -272,14 +292,14 @@
   }
 
   @if (avoidable().length > 0) {
-    <section class="card danger-card">
+    <section class="card danger-card" data-section="avoidable">
       <button class="card-head" (click)="toggleSection('avoidable')">
         <span class="chev" [class.open]="isOpen('avoidable')">▸</span>
         <span class="card-title">⚠ Avoidable damage taken</span>
         <span class="card-meta">{{ fmt(avoidableTotal()) }} total</span>
       </button>
       @if (isOpen('avoidable')) {
-        <div class="card-body">
+        <div class="card-body" animate.enter="body-enter" animate.leave="body-leave">
           <p class="hint">
             A mechanic counts as avoidable when one cast of it catches less than half the raid on
             average (tankbusters excluded). Toggle the ⚠ on any mechanic below to correct it.
@@ -354,14 +374,14 @@
   }
 
   @for (group of sortedMechanicGroups(); track group.phase) {
-    <section class="card">
+    <section class="card" [attr.data-section]="'mech:' + group.phase">
       <button class="card-head" (click)="toggleSection('mech:' + group.phase)">
         <span class="chev" [class.open]="isOpen('mech:' + group.phase)">▸</span>
         <span class="card-title">{{ group.label ?? 'Mechanic hits' }}</span>
         <span class="card-meta">{{ group.mechanics.length }} mechanics</span>
       </button>
       @if (isOpen('mech:' + group.phase)) {
-        <div class="card-body">
+        <div class="card-body" animate.enter="body-enter" animate.leave="body-leave">
           <table class="mechanics">
             <thead>
               <tr>
@@ -452,7 +472,7 @@
   }
 
   @if (scope() === 'pull') {
-    <section class="card">
+    <section class="card" data-section="readiness">
       <button class="card-head" (click)="toggleSection('readiness')">
         <span class="chev" [class.open]="isOpen('readiness')">▸</span>
         <span class="card-title">Raid readiness</span>
@@ -466,7 +486,7 @@
         }
       </button>
       @if (isOpen('readiness')) {
-        <div class="card-body">
+        <div class="card-body" animate.enter="body-enter" animate.leave="body-leave">
           <p class="hint">
             What people turned up with, taken from the snapshot Warcraft Logs writes as the pull
             starts. Consumables are matched by name, so a fresh patch's flask still counts.
@@ -499,14 +519,6 @@
                     <span class="tally"
                       >{{ buff.name }}{{ buff.nobodyBrings ? ' (none in raid)' : '' }}</span
                     >
-                  }
-                </p>
-              }
-              @if (r.absent.length > 0) {
-                <p class="hint">
-                  <strong>Sat this pull out:</strong>
-                  @for (player of r.absent; track player.name) {
-                    <span class="tally" [style.color]="player.color">{{ player.name }}</span>
                   }
                 </p>
               }
@@ -565,7 +577,7 @@
   }
 
   @if (raidCooldowns().lust.length > 0 || raidCooldowns().battleRez.length > 0) {
-    <section class="card">
+    <section class="card" data-section="raidcds">
       <button class="card-head" (click)="toggleSection('raidcds')">
         <span class="chev" [class.open]="isOpen('raidcds')">▸</span>
         <span class="card-title">Bloodlust &amp; battle rezzes</span>
@@ -574,7 +586,7 @@
         </span>
       </button>
       @if (isOpen('raidcds')) {
-        <div class="card-body">
+        <div class="card-body" animate.enter="body-enter" animate.leave="body-leave">
           <p class="hint">
             The raid-wide cooldowns, pulled from the cast log. Drums and a hunter pet's Primal Rage
             count as lust; a pet's cast is credited to its owner.
@@ -663,14 +675,14 @@
   }
 
   @if (utility().length > 0) {
-    <section class="card">
+    <section class="card" data-section="utility">
       <button class="card-head" (click)="toggleSection('utility')">
         <span class="chev" [class.open]="isOpen('utility')">▸</span>
         <span class="card-title">Survival &amp; utility</span>
         <span class="card-meta">{{ utility().length }} raiders</span>
       </button>
       @if (isOpen('utility')) {
-        <div class="card-body">
+        <div class="card-body" animate.enter="body-enter" animate.leave="body-leave">
           <table class="fixed">
             <thead>
               <tr>
@@ -743,14 +755,14 @@
   }
 
   @if (scope() === 'pull' && deathRows().length > 0) {
-    <section class="card">
+    <section class="card" data-section="deaths">
       <button class="card-head" (click)="toggleSection('deaths')">
         <span class="chev" [class.open]="isOpen('deaths')">▸</span>
         <span class="card-title">Deaths</span>
         <span class="card-meta">{{ deathRows().length }}</span>
       </button>
       @if (isOpen('deaths')) {
-        <div class="card-body">
+        <div class="card-body" animate.enter="body-enter" animate.leave="body-leave">
           <p class="hint disclaimer">
             <strong>⚠ A prompt to check the log, not a verdict.</strong> Healing is consolidated per
             healer, not per tick, and the app cannot tell whether someone was chunked from full with
@@ -1052,14 +1064,14 @@
   }
 
   @if (scope() === 'all' && deathLeaderboard().length > 0) {
-    <section class="card">
+    <section class="card" data-section="deaths">
       <button class="card-head" (click)="toggleSection('deaths')">
         <span class="chev" [class.open]="isOpen('deaths')">▸</span>
         <span class="card-title">Deaths across pulls</span>
         <span class="card-meta">{{ deathLeaderboard().length }} raiders</span>
       </button>
       @if (isOpen('deaths')) {
-        <div class="card-body">
+        <div class="card-body" animate.enter="body-enter" animate.leave="body-leave">
           <p class="hint disclaimer">
             <strong>⚠ Read this as a prompt to check the log, not a verdict.</strong> "Without
             pressing anything" only means no defensive, immunity, raid CD or health pot was used in

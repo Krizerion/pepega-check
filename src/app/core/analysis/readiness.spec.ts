@@ -79,14 +79,15 @@ describe('buildReadiness', () => {
     expect(result.counts.flask).toBe(4);
   });
 
-  it('lists roster members who were not in the pull', () => {
+  it('leaves out roster members who were not in the pull', () => {
     const snapshots = allReady().filter((s) => s.sourceID !== players[1].id);
 
     const result = buildReadiness(fight, input, snapshots);
 
-    expect(result.absent.map((a) => a.name)).toEqual(['Healy']);
-    // Absent raiders are not also reported as unprepared.
+    // Someone who was not in the pull is left out, not reported as unprepared.
     expect(result.rows.map((r) => r.name)).not.toContain('Healy');
+    expect(result.rows).toHaveLength(3);
+    expect(result.counts.total).toBe(3);
   });
 
   it('reports a buff nobody had once, not against every raider', () => {
@@ -140,6 +141,5 @@ describe('buildReadiness', () => {
 
     expect(result.counts.flask).toBe(0);
     expect(result.rows).toHaveLength(4);
-    expect(result.absent).toHaveLength(0);
   });
 });

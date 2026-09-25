@@ -27,7 +27,6 @@ export function buildReadiness(
   }
 
   const rows: ReadinessRow[] = [];
-  const absent: { name: string; color: string }[] = [];
   /** Raid buffs seen on anyone: a buff nobody has is a raid-wide gap. */
   const seenSomewhere = new Set<number>();
 
@@ -36,8 +35,8 @@ export function buildReadiness(
     const color = classColor(player.className);
 
     if (!info) {
-      // No snapshot means they were not in this pull at all.
-      absent.push({ name: player.name, color });
+      // No snapshot means they were not in this pull; they are simply left out
+      // rather than listed, since a roster is not a readiness problem.
       continue;
     }
 
@@ -92,7 +91,6 @@ export function buildReadiness(
   return {
     fightId: fight.id,
     rows,
-    absent,
     raidWideGaps,
     counts: {
       total: rows.length,
