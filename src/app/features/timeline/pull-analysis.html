@@ -451,6 +451,104 @@
     </section>
   }
 
+  @if (raidCooldowns().lust.length > 0 || raidCooldowns().battleRez.length > 0) {
+    <section class="card">
+      <button class="card-head" (click)="toggleSection('raidcds')">
+        <span class="chev" [class.open]="isOpen('raidcds')">▸</span>
+        <span class="card-title">Bloodlust &amp; battle rezzes</span>
+        <span class="card-meta">
+          {{ raidCooldowns().lust.length }} lust · {{ raidCooldowns().battleRez.length }} rez
+        </span>
+      </button>
+      @if (isOpen('raidcds')) {
+        <div class="card-body">
+          <p class="hint">
+            The raid-wide cooldowns, pulled from the cast log. Drums and a hunter pet's Primal Rage
+            count as lust; a pet's cast is credited to its owner.
+          </p>
+
+          <h4 class="sub">Haste buff</h4>
+          @if (raidCooldowns().lust.length === 0) {
+            <p class="hint none-note">Nobody used one in this scope.</p>
+          } @else {
+            <ul class="rcd">
+              @for (use of raidCooldowns().lust; track $index) {
+                <li>
+                  <img class="rcd-icon" [src]="use.icon" alt="" (error)="onIconError($event)" />
+                  @if (use.url) {
+                    <a
+                      appWowhead
+                      class="rcd-name"
+                      [href]="use.url"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {{ use.abilityName }}
+                    </a>
+                  } @else {
+                    <span class="rcd-name">{{ use.abilityName }}</span>
+                  }
+                  <span class="rcd-who" [style.color]="use.casterColor">{{ use.casterName }}</span>
+                  @if (use.viaPet) {
+                    <span class="ago">via {{ use.viaPet }}</span>
+                  }
+                  <span class="rcd-when">{{ useWhen(use) }}</span>
+                </li>
+              }
+            </ul>
+          }
+          @if (noLustPulls().length > 0) {
+            <p class="hint warn-note">
+              <strong>No haste buff at all</strong> on
+              {{ noLustPulls().length === 1 ? 'pull' : 'pulls' }}
+              {{ noLustPulls().join(', ') }}.
+            </p>
+          }
+
+          <h4 class="sub">Battle rezzes</h4>
+          @if (raidCooldowns().battleRez.length === 0) {
+            <p class="hint none-note">None used in this scope.</p>
+          } @else {
+            <ul class="rcd">
+              @for (use of raidCooldowns().battleRez; track $index) {
+                <li>
+                  <img class="rcd-icon" [src]="use.icon" alt="" (error)="onIconError($event)" />
+                  @if (use.url) {
+                    <a
+                      appWowhead
+                      class="rcd-name"
+                      [href]="use.url"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {{ use.abilityName }}
+                    </a>
+                  } @else {
+                    <span class="rcd-name">{{ use.abilityName }}</span>
+                  }
+                  <span class="rcd-who" [style.color]="use.casterColor">{{ use.casterName }}</span>
+                  @if (use.targetName) {
+                    <span class="ago">on {{ use.targetName }}</span>
+                  }
+                  <span class="rcd-when">{{ useWhen(use) }}</span>
+                </li>
+              }
+            </ul>
+            @if (raidCooldowns().byCaster.length > 1) {
+              <p class="hint rcd-tally">
+                @for (caster of raidCooldowns().byCaster; track caster.name) {
+                  <span class="tally" [style.color]="caster.color"
+                    >{{ caster.name }} ×{{ caster.count }}</span
+                  >
+                }
+              </p>
+            }
+          }
+        </div>
+      }
+    </section>
+  }
+
   @if (utility().length > 0) {
     <section class="card">
       <button class="card-head" (click)="toggleSection('utility')">

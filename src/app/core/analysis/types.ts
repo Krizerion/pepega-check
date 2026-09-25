@@ -207,6 +207,30 @@ export interface DeathRow {
   healingReceived: number;
 }
 
+/** One press of a raid-wide cooldown: the haste buff, or a battle rez. */
+export interface RaidCooldownUse {
+  fightId: number;
+  /** Fight-relative time of the cast. */
+  timeMs: number;
+  abilityId: number;
+  abilityName: string;
+  icon: string;
+  url: string | null;
+  casterName: string;
+  casterColor: string;
+  /** Set when a pet cast it on their owner's behalf (Primal Rage). */
+  viaPet: string | null;
+  /** Battle rez only: who was brought back, when the log says. */
+  targetName: string | null;
+}
+
+export interface RaidCooldowns {
+  lust: RaidCooldownUse[];
+  battleRez: RaidCooldownUse[];
+  /** Battle rezzes per raider, most first. */
+  byCaster: { name: string; color: string; count: number }[];
+}
+
 export interface LeaderboardRow {
   name: string;
   color: string;

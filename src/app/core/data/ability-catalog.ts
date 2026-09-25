@@ -78,6 +78,36 @@ const NOT_CONSUMABLE = new RegExp(
   catalog.notConsumablePattern.flags,
 );
 
+/**
+ * Raid-wide cooldowns that are counted rather than filtered: the haste buff
+ * (Bloodlust and everything that behaves like it) and battle rezzes.
+ *
+ * They are matched by id first and by name second, because the item-based ones
+ * — drums especially — get a fresh spell id every expansion, and a hunter pet's
+ * Primal Rage has had several. The name fallback keeps them working without a
+ * catalog update.
+ */
+const lustIds = new Set(catalog.raidCooldowns.lust.map((a) => a.id));
+const battleRezIds = new Set(catalog.raidCooldowns.battleRez.map((a) => a.id));
+const LUST_PATTERN = new RegExp(
+  catalog.raidCooldowns.lustPattern.pattern,
+  catalog.raidCooldowns.lustPattern.flags,
+);
+const BATTLE_REZ_PATTERN = new RegExp(
+  catalog.raidCooldowns.battleRezPattern.pattern,
+  catalog.raidCooldowns.battleRezPattern.flags,
+);
+
+/** True for Bloodlust, Heroism, Time Warp, Primal Rage, drums and friends. */
+export function isLust(spellId: number, name: string | null): boolean {
+  return lustIds.has(spellId) || (!!name && LUST_PATTERN.test(name));
+}
+
+/** True for Rebirth, Raise Ally, Soulstone and Intercession. */
+export function isBattleRez(spellId: number, name: string | null): boolean {
+  return battleRezIds.has(spellId) || (!!name && BATTLE_REZ_PATTERN.test(name));
+}
+
 /** Classifies a player's cast; returns null for uninteresting (rotational) spells. */
 export function classifyAbility(spellId: number, name: string | null): AbilityCategory | null {
   const byId = categoryBySpellId.get(spellId);

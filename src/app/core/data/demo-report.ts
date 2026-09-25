@@ -395,6 +395,45 @@ const DEMO_HOT_ID = 139;
 /** The (real) debuff the demo's healers cleanse. */
 const DEMO_DEBUFF_ID = 1284471;
 
+/** Actor id for the hunter's pet, above every player's. */
+const PET_ACTOR_ID = 900;
+
+/**
+ * Who might press the haste buff. `className: null` is the hunter pet's Primal
+ * Rage, which the log credits to the pet — the case worth having in the demo.
+ */
+const LUST_OPTIONS: { id: number; name: string; icon: string; className: string | null }[] = [
+  { id: 2825, name: 'Bloodlust', icon: 'spell_nature_bloodlust.jpg', className: 'Shaman' },
+  { id: 80353, name: 'Time Warp', icon: 'ability_mage_timewarp.jpg', className: 'Mage' },
+  {
+    id: 390386,
+    name: 'Fury of the Aspects',
+    icon: 'ability_evoker_furyoftheaspects.jpg',
+    className: 'Evoker',
+  },
+  { id: 264667, name: 'Primal Rage', icon: 'ability_hunter_bloodlust.jpg', className: null },
+  // An item rather than a class ability, so anyone can be the one carrying them.
+  { id: 381301, name: 'Feral Hide Drums', icon: 'inv_misc_drum_01.jpg', className: 'Rogue' },
+];
+
+/** Battle rezzes available to the demo roster. */
+const REZ_OPTIONS: { id: number; name: string; icon: string; className: string }[] = [
+  { id: 20484, name: 'Rebirth', icon: 'spell_nature_reincarnation.jpg', className: 'Druid' },
+  {
+    id: 61999,
+    name: 'Raise Ally',
+    icon: 'spell_shadow_deadofnight.jpg',
+    className: 'DeathKnight',
+  },
+  { id: 20707, name: 'Soulstone', icon: 'spell_shadow_soulgem.jpg', className: 'Warlock' },
+  {
+    id: 391054,
+    name: 'Intercession',
+    icon: 'spell_holy_nullifydisease.jpg',
+    className: 'Paladin',
+  },
+];
+
 /** Dispel spells the demo healers use, with the debuff they remove. */
 const DEMO_DISPELS: { className: string; spellId: number; name: string; icon: string }[] = [
   { className: 'Priest', spellId: 527, name: 'Purify', icon: 'spell_holy_dispelmagic.jpg' },
@@ -415,9 +454,13 @@ export function buildDemoReport(): DemoData {
   }));
 
   const abilities = new Map<number, ReportAbility>(
-    [...PLAYER_SPELLS, ...BOSS_SPELLS, ...DEMO_DISPELS.map((d) => ({ ...d, id: d.spellId }))].map(
-      (s) => [s.id, { gameID: s.id, name: s.name, icon: s.icon, type: null }],
-    ),
+    [
+      ...PLAYER_SPELLS,
+      ...BOSS_SPELLS,
+      ...DEMO_DISPELS.map((d) => ({ ...d, id: d.spellId })),
+      ...LUST_OPTIONS,
+      ...REZ_OPTIONS,
+    ].map((s) => [s.id, { gameID: s.id, name: s.name, icon: s.icon, type: null }]),
   );
   abilities.set(DEMO_DEBUFF_ID, {
     gameID: DEMO_DEBUFF_ID,
@@ -481,6 +524,15 @@ export function buildDemoReport(): DemoData {
         subType: p.className,
         petOwner: null,
       })),
+      // The hunter's pet, so the demo exercises a Primal Rage credited to its
+      // owner rather than to "Bloodpaw".
+      {
+        id: PET_ACTOR_ID,
+        name: 'Bloodpaw',
+        type: 'Pet',
+        subType: 'Hunter',
+        petOwner: players.find((p) => p.className === 'Hunter')?.id ?? null,
+      },
     ],
     abilities,
   };
@@ -766,16 +818,48 @@ function buildFightEvents(
     }
   }
 
+  // The haste buff: usually pressed a little way in, by whoever has one. Every
+  // so often nobody does, which is exactly the case the analysis calls out.
+  if (random() < 0.85) {
+    const option = LUST_OPTIONS[Math.floor(random() * LUST_OPTIONS.length)];
+    const caster =
+      option.className === null
+        ? { id: PET_ACTOR_ID }
+        : players.find((p) => p.className === option.className);
+    if (caster) {
+      friendlyCasts.push(
+        cast(startTime + (0.12 + random() * 0.25) * durationSec * 1000, caster.id, null, option.id),
+      );
+    }
+  }
+
   // Wipes kill off part of the raid near the end; kills lose a couple of people early.
   const deathCount = isKill ? 2 : 4 + Math.floor(random() * players.length * 0.6);
   const shuffled = [...players].sort(() => random() - 0.5);
   for (let i = 0; i < deathCount; i++) {
     const frac = isKill ? 0.2 + random() * 0.5 : 0.75 + (i / deathCount) * 0.24;
+    const victim = shuffled[i];
     deaths.push({
       timestamp: startTime + frac * durationSec * 1000,
-      targetID: shuffled[i].id,
+      targetID: victim.id,
       abilityGameID: BOSS_SPELLS[Math.floor(random() * BOSS_SPELLS.length)].id,
     });
+
+    // Someone with a rez usually picks an early death back up.
+    if (frac < 0.7 && random() < 0.6) {
+      const option = REZ_OPTIONS[Math.floor(random() * REZ_OPTIONS.length)];
+      const rezzer = players.find((p) => p.className === option.className && p.id !== victim.id);
+      if (rezzer) {
+        friendlyCasts.push(
+          cast(
+            startTime + (frac * durationSec + 4 + random() * 6) * 1000,
+            rezzer.id,
+            victim.id,
+            option.id,
+          ),
+        );
+      }
+    }
   }
   deaths.sort((a, b) => a.timestamp - b.timestamp);
 

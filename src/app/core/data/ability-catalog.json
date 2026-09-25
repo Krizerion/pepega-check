@@ -1145,5 +1145,95 @@
   "notConsumablePattern": {
     "pattern": "^create ",
     "flags": "i"
+  },
+  "raidCooldowns": {
+    "lust": [
+      {
+        "id": 2825,
+        "name": "Bloodlust"
+      },
+      {
+        "id": 32182,
+        "name": "Heroism"
+      },
+      {
+        "id": 80353,
+        "name": "Time Warp"
+      },
+      {
+        "id": 390386,
+        "name": "Fury of the Aspects"
+      },
+      {
+        "id": 264667,
+        "name": "Primal Rage"
+      },
+      {
+        "id": 272678,
+        "name": "Primal Rage"
+      },
+      {
+        "id": 90355,
+        "name": "Ancient Hysteria"
+      },
+      {
+        "id": 160452,
+        "name": "Netherwinds"
+      },
+      {
+        "id": 146555,
+        "name": "Drums of Rage"
+      },
+      {
+        "id": 230935,
+        "name": "Drums of the Mountain"
+      },
+      {
+        "id": 256740,
+        "name": "Drums of the Maelstrom"
+      },
+      {
+        "id": 309658,
+        "name": "Drums of Deathly Ferocity"
+      },
+      {
+        "id": 381301,
+        "name": "Feral Hide Drums"
+      },
+      {
+        "id": 466904,
+        "name": "Drums of War"
+      }
+    ],
+    "battleRez": [
+      {
+        "id": 20484,
+        "name": "Rebirth"
+      },
+      {
+        "id": 61999,
+        "name": "Raise Ally"
+      },
+      {
+        "id": 20707,
+        "name": "Soulstone"
+      },
+      {
+        "id": 391054,
+        "name": "Intercession"
+      },
+      {
+        "id": 95750,
+        "name": "Soulstone Resurrection"
+      }
+    ],
+    "lustPattern": {
+      "pattern": "bloodlust|heroism|time warp|primal rage|fury of the aspects|ancient hysteria|netherwinds|\\bdrums\\b",
+      "flags": "i"
+    },
+    "battleRezPattern": {
+      "pattern": "rebirth|raise ally|soulstone|intercession",
+      "flags": "i"
+    }
   }
 }

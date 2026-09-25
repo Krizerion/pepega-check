@@ -16,8 +16,15 @@ import { aggregateDamage, buildMechanicGroups } from '../../core/analysis/damage
 import { buildDeathLeaderboard, buildDeathRows } from '../../core/analysis/deaths';
 import { buildSummaryMarkdown } from '../../core/analysis/export';
 import { buildPhaseWipeRows, phaseWipeHeadline } from '../../core/analysis/phases';
+import { buildRaidCooldowns, pullsWithoutLust } from '../../core/analysis/raid-cooldowns';
 import { SortState, nextSort, sortRows } from '../../core/analysis/sort';
-import { AnalysisInput, DeathMoment, DeathRow } from '../../core/analysis/types';
+import {
+  AnalysisInput,
+  DeathMoment,
+  DeathRow,
+  RaidCooldownUse,
+  RaidCooldowns,
+} from '../../core/analysis/types';
 import { buildUtilityRows } from '../../core/analysis/utility';
 import { classColor } from '../../core/data/wow';
 import { ReportFight, fightDuration, formatOffset } from '../../core/models/wcl';
@@ -237,6 +244,31 @@ export class PullAnalysis {
   protected readonly avoidableTotal = computed(() =>
     this.avoidable().reduce((sum, row) => sum + row.damage, 0),
   );
+
+  /** Raid-wide cooldowns: the haste buff and battle rezzes. */
+  protected readonly raidCooldowns = computed<RaidCooldowns>(() => {
+    const input = this.input();
+    return input ? buildRaidCooldowns(input) : { lust: [], battleRez: [], byCaster: [] };
+  });
+
+  /** Pulls in scope that never got the haste buff, as pull numbers. */
+  protected readonly noLustPulls = computed(() =>
+    pullsWithoutLust(this.scopeFights(), this.raidCooldowns().lust).map((id) =>
+      this.pullNumber(id),
+    ),
+  );
+
+  /** "Pull 7" for a fight id, using the encounter's own numbering. */
+  protected pullNumber(fightId: number): number {
+    const pulls = this.store.selectedEncounter()?.pulls ?? [];
+    return pulls.findIndex((p) => p.id === fightId) + 1;
+  }
+
+  /** "Pull 7 · 2:14" — where a raid cooldown was pressed. */
+  protected useWhen(use: RaidCooldownUse): string {
+    const at = formatOffset(use.timeMs);
+    return this.scope() === 'all' ? `Pull ${this.pullNumber(use.fightId)} · ${at}` : at;
+  }
 
   protected readonly deathRows = computed(() => {
     const input = this.input();
