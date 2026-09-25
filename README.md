@@ -6,26 +6,42 @@ timeline: boss ability casts, personal defensives, immunities, potions & healths
 cooldowns, offensive cooldowns and deaths — for every raider, filterable by category.
 
 There is no backend and no database. The app talks to the Warcraft Logs v2 GraphQL API directly
-from your browser; credentials live in your browser's localStorage only.
+from your browser; credentials live in your browser's localStorage only. What that means for data
+handling is spelled out in [`public/privacy.html`](public/privacy.html), which ships as a static
+page alongside the app.
+
+## Layout
+
+The chrome is deliberately thin — every pixel it takes is a pixel the timeline does not get.
+
+- **App bar** — the report you are reading, a button to swap it, attribution and Settings.
+- **Context bar** — boss picker, pull stepper, the Timeline / Raider / Analysis switch, and zoom.
+- **Filter strip** — one scrollable row of category chips. Each chip's caret opens a popover
+  listing that category's abilities, so you can hide a single spell without turning off its whole
+  category. Icons there carry Wowhead tooltips.
+- **Rail** — pulls and raiders. It collapses below 1080px and becomes a drawer on phones.
 
 ## Views
 
-- **Pull view** — one pull, one row per raider (grouped under Tanks / Healers / DPS headers), with
-  all boss casts merged into a sticky horizontal lane at the top (click its label to expand into
-  per-ability rows). Phase transitions are drawn as dashed vertical lines, and the "Cast lines"
-  toggle extends every boss cast down through the raider rows.
-- **Player view** — click any raider (in the sidebar or on a row label) to flip the axis: one row
-  per pull, showing everything that raider pressed on every attempt, with the wipe point marked.
-  A reference boss lane (from the longest included pull) sits on top, and selected boss abilities
-  are overlaid as small ticks on each pull row. Untick pulls in the sidebar to exclude them.
-- **Pull analysis** — the 📋 Analysis toggle shows a death log for the selected pull (who died,
-  to what, and whether they pressed a defensive or health pot in the 12s before) plus a heuristic
-  wipe summary: first blood, deadliest mechanic, death spirals and the likely wipe starter. The
-  "Ignore after N deaths" selector greys out everything on the timeline past the Nth death.
+- **Timeline (pull view)** — one pull, one row per raider (grouped under Tanks / Healers / DPS
+  headers), with all boss casts merged into a sticky horizontal lane at the top (click its label to
+  expand into per-ability rows). Phase transitions are drawn as dashed vertical lines, and the
+  "Cast lines" toggle extends every boss cast down through the raider rows.
+- **Raider (player view)** — click any raider (in the rail or on a row label) to flip the axis: one
+  row per pull, showing everything that raider pressed on every attempt, with the wipe point
+  marked. A reference boss lane (from the longest included pull) sits on top, and selected boss
+  abilities are overlaid as small ticks on each pull row. Untick pulls in the rail to exclude them.
+- **Analysis** — scoped to this pull or every included pull. It holds a death log, damage taken by
+  mechanic and by raider, avoidable damage, a utility/cooldown table, and a phase breakdown showing
+  where pulls actually end.
 
-Hover any icon for the ability name and timestamp. Use the role and category chips to filter
-(health pots/stones and combat pots are separate), the boss ability picker to focus on specific
-mechanics, and the −/+ controls to zoom the time axis.
+The death log is the detailed half: one card per death covering the last 12 seconds, with a health
+trace, every hit that landed (with health either side, overkill and absorbs), the cooldowns they
+pressed, the ones that were available and unused, and incoming healing. Long runs of HoT ticks fold
+into a single line that expands to show which healer and which spell. "Ignore after N deaths" greys
+out everything on the timeline past the Nth death, so a wipe's tail does not drown the start.
+
+Hover any icon for the ability name and timestamp; click a marker to pin its Wowhead tooltip.
 
 Ability names that link to Wowhead show the live Wowhead spell tooltip on hover, via their
 [tooltip widget](https://wow.zamimg.com/js/tooltips.js) loaded in `index.html`. Links rendered
@@ -71,7 +87,7 @@ picks them up automatically.
 Every push to `main` deploys automatically via
 [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — lint, tests, production build
 (base href `/pepega-check/`), then GitHub Pages. If the first run cannot enable Pages by itself,
-flip **Settings → Pages → Source** to *GitHub Actions* once.
+flip **Settings → Pages → Source** to _GitHub Actions_ once.
 
 The site is served at `https://<user>.github.io/pepega-check/`.
 

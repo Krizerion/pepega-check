@@ -7,10 +7,11 @@ import {
   signal,
 } from '@angular/core';
 
-import { classifyAbility, CATEGORY_META } from '../../core/data/ability-catalog';
+import { AbilityCategory, classifyAbility, CATEGORY_META } from '../../core/data/ability-catalog';
 import { abilityIconUrl, classColor } from '../../core/data/wow';
 import {
-  FightEvents,
+  CastEvent,
+  DeathEvent,
   PlayerInfo,
   ReportFight,
   fightDuration,
@@ -52,6 +53,15 @@ interface TimelineRow {
 interface Tick {
   x: number;
   label: string;
+}
+
+/** Per-fight lookups, so row building never rescans the whole log. */
+interface FightIndex {
+  castsByPlayer: Map<number, CastEvent[]>;
+  deathsByPlayer: Map<number, DeathEvent[]>;
+  /** Classification is per ability, not per cast — the regex fallback is slow. */
+  categoryByAbility: Map<number, AbilityCategory | null>;
+  enemyCastsByAbility: Map<number, CastEvent[]>;
 }
 
 interface Tooltip {
@@ -196,24 +206,23 @@ export class Timeline {
       return [];
     }
     const pull = this.store.selectedPull();
-    const events = pull ? this.store.events().get(pull.id) : null;
-    if (!pull || !events) {
+    const index = pull ? this.fightIndex().get(pull.id) : null;
+    if (!pull || !index) {
       return [];
     }
     const visible = this.store.selectedBossAbilityIds();
     const colorById = this.bossColorById();
     const pxPerMs = this.store.pxPerSecond() / 1000;
-    return events.enemyCasts
-      .filter(
-        (c) =>
-          c.type === 'cast' &&
-          colorById.has(c.abilityGameID) &&
-          (visible === null || visible.has(c.abilityGameID)),
-      )
-      .map((c) => ({
-        x: (c.timestamp - pull.startTime) * pxPerMs,
-        color: colorById.get(c.abilityGameID)!,
-      }));
+    const lines: { x: number; color: string }[] = [];
+    for (const [abilityId, color] of colorById) {
+      if (visible !== null && !visible.has(abilityId)) {
+        continue;
+      }
+      for (const cast of index.enemyCastsByAbility.get(abilityId) ?? []) {
+        lines.push({ x: (cast.timestamp - pull.startTime) * pxPerMs, color });
+      }
+    }
+    return lines;
   });
 
   /** Fight-relative time of the Nth death in the selected pull ("ignore after X deaths"). */
@@ -240,6 +249,70 @@ export class Timeline {
     this.store.viewMode() === 'pull' ? this.buildPullRows() : this.buildPlayerRows(),
   );
 
+  /**
+   * Casts grouped by who cast them, deaths by who died, boss casts by ability,
+   * and each ability classified once.
+   *
+   * Row building used to walk every cast in the fight once per raider and
+   * classify it there: twenty raiders over a long pull meant hundreds of
+   * thousands of regex-backed classifications, repeated on every filter toggle.
+   * This depends only on the report and its events, so toggling a category or
+   * hiding a spell now re-reads the index instead of rebuilding it.
+   */
+  private readonly fightIndex = computed<ReadonlyMap<number, FightIndex>>(() => {
+    const report = this.store.report();
+    const eventsByFight = this.store.events();
+    const index = new Map<number, FightIndex>();
+    if (!report) {
+      return index;
+    }
+
+    for (const fight of this.store.fightsInView()) {
+      const events = eventsByFight.get(fight.id);
+      if (!events) {
+        continue;
+      }
+
+      const castsByPlayer = new Map<number, CastEvent[]>();
+      const categoryByAbility = new Map<number, AbilityCategory | null>();
+      for (const cast of events.friendlyCasts) {
+        push(castsByPlayer, cast.sourceID, cast);
+        if (!categoryByAbility.has(cast.abilityGameID)) {
+          const ability = report.abilities.get(cast.abilityGameID);
+          categoryByAbility.set(
+            cast.abilityGameID,
+            classifyAbility(cast.abilityGameID, ability?.name ?? null),
+          );
+        }
+      }
+
+      const deathsByPlayer = new Map<number, DeathEvent[]>();
+      for (const death of events.deaths) {
+        push(deathsByPlayer, death.targetID, death);
+      }
+
+      const enemyCastsByAbility = new Map<number, CastEvent[]>();
+      for (const cast of events.enemyCasts) {
+        if (cast.type === 'cast') {
+          push(enemyCastsByAbility, cast.abilityGameID, cast);
+        }
+      }
+
+      index.set(fight.id, {
+        castsByPlayer,
+        deathsByPlayer,
+        categoryByAbility,
+        enemyCastsByAbility,
+      });
+    }
+    return index;
+  });
+
+  /** Actor names by id, so a death does not linear-search the roster. */
+  private readonly actorNameById = computed(
+    () => new Map((this.store.report()?.actors ?? []).map((a) => [a.id, a.name])),
+  );
+
   // --- row building ---
 
   private buildPullRows(): TimelineRow[] {
@@ -252,7 +325,7 @@ export class Timeline {
     const rows: TimelineRow[] = [];
 
     if (this.store.showBossAbilities()) {
-      rows.push(...this.bossRows(pull, events));
+      rows.push(...this.bossRows(pull));
     }
 
     const enabledRoles = this.store.enabledRoles();
@@ -301,25 +374,24 @@ export class Timeline {
   }
 
   /** Boss casts: one merged horizontal lane by default, per-ability rows when expanded. */
-  private bossRows(pull: ReportFight, events: FightEvents, labelSuffix = ''): TimelineRow[] {
+  private bossRows(pull: ReportFight, labelSuffix = ''): TimelineRow[] {
     const visible = this.store.selectedBossAbilityIds();
+    const castsByAbility = this.fightIndex().get(pull.id)?.enemyCastsByAbility;
     const abilities = this.store
       .bossAbilities()
       .map((ability, index) => ({ ability, color: this.bossAbilityColor(index) }))
       .filter(({ ability }) => visible === null || visible.has(ability.id));
 
     const markersFor = (abilityId: number, icon: string | null, name: string, color: string) =>
-      events.enemyCasts
-        .filter((c) => c.type === 'cast' && c.abilityGameID === abilityId)
-        .map((c) => ({
-          timeMs: c.timestamp - pull.startTime,
-          kind: 'boss' as const,
-          abilityId,
-          iconUrl: abilityIconUrl(icon),
-          color,
-          title: name,
-          sub: formatOffset(c.timestamp - pull.startTime),
-        }));
+      (castsByAbility?.get(abilityId) ?? []).map((c) => ({
+        timeMs: c.timestamp - pull.startTime,
+        kind: 'boss' as const,
+        abilityId,
+        iconUrl: abilityIconUrl(icon),
+        color,
+        title: name,
+        sub: formatOffset(c.timestamp - pull.startTime),
+      }));
 
     if (!this.store.bossLaneExpanded()) {
       const merged: TimelineMarker[] = abilities.flatMap(({ ability, color }, index) =>
@@ -391,9 +463,7 @@ export class Timeline {
       );
       const events = reference ? this.store.events().get(reference.id) : null;
       if (reference && events) {
-        rows.push(
-          ...this.bossRows(reference, events, ` · from pull ${allPulls.indexOf(reference) + 1}`),
-        );
+        rows.push(...this.bossRows(reference, ` · from pull ${allPulls.indexOf(reference) + 1}`));
       }
     }
 
@@ -427,8 +497,8 @@ export class Timeline {
   /** Classified casts + death markers for one player during one pull. */
   private playerMarkers(pull: ReportFight, player: PlayerInfo, context: string): TimelineMarker[] {
     const report = this.store.report();
-    const events = this.store.events().get(pull.id);
-    if (!report || !events) {
+    const index = this.fightIndex().get(pull.id);
+    if (!report || !index) {
       return [];
     }
 
@@ -436,15 +506,15 @@ export class Timeline {
     const disabled = this.store.disabledAbilityIds();
     const markers: TimelineMarker[] = [];
 
-    for (const cast of events.friendlyCasts) {
-      if (cast.sourceID !== player.id || disabled.has(cast.abilityGameID)) {
+    for (const cast of index.castsByPlayer.get(player.id) ?? []) {
+      if (disabled.has(cast.abilityGameID)) {
         continue;
       }
-      const ability = report.abilities.get(cast.abilityGameID);
-      const category = classifyAbility(cast.abilityGameID, ability?.name ?? null);
+      const category = index.categoryByAbility.get(cast.abilityGameID);
       if (!category || !enabled.has(category)) {
         continue;
       }
+      const ability = report.abilities.get(cast.abilityGameID);
       const timeMs = cast.timestamp - pull.startTime;
       markers.push({
         timeMs,
@@ -458,16 +528,11 @@ export class Timeline {
     }
 
     if (this.store.showDeaths()) {
-      for (const death of events.deaths) {
-        if (death.targetID !== player.id) {
-          continue;
-        }
+      for (const death of index.deathsByPlayer.get(player.id) ?? []) {
         const abilityId = killingAbilityId(death);
         const killer =
           (abilityId !== null ? report.abilities.get(abilityId)?.name : null) ??
-          (death.killerID != null
-            ? (report.actors.find((a) => a.id === death.killerID)?.name ?? null)
-            : null);
+          (death.killerID != null ? (this.actorNameById().get(death.killerID) ?? null) : null);
         const timeMs = death.timestamp - pull.startTime;
         markers.push({
           timeMs,
@@ -487,8 +552,8 @@ export class Timeline {
   /** Small boss-cast ticks overlaid on pull rows in the player view. */
   private bossTickMarkers(pull: ReportFight): TimelineMarker[] {
     const report = this.store.report();
-    const events = this.store.events().get(pull.id);
-    if (!report || !events) {
+    const index = this.fightIndex().get(pull.id);
+    if (!report || !index) {
       return [];
     }
     const visible = this.store.selectedBossAbilityIds();
@@ -497,21 +562,23 @@ export class Timeline {
       return [];
     }
     const colorById = this.bossColorById();
-    return events.enemyCasts
-      .filter((c) => c.type === 'cast' && visible.has(c.abilityGameID))
-      .map((c) => {
-        const ability = report.abilities.get(c.abilityGameID);
-        const timeMs = c.timestamp - pull.startTime;
-        return {
+    const markers: TimelineMarker[] = [];
+    for (const abilityId of visible) {
+      const ability = report.abilities.get(abilityId);
+      for (const cast of index.enemyCastsByAbility.get(abilityId) ?? []) {
+        const timeMs = cast.timestamp - pull.startTime;
+        markers.push({
           timeMs,
-          kind: 'boss' as const,
-          abilityId: c.abilityGameID,
+          kind: 'boss',
+          abilityId,
           iconUrl: abilityIconUrl(ability?.icon),
-          color: colorById.get(c.abilityGameID) ?? BOSS_COLOR,
-          title: ability?.name ?? `Ability #${c.abilityGameID}`,
+          color: colorById.get(abilityId) ?? BOSS_COLOR,
+          title: ability?.name ?? `Ability #${abilityId}`,
           sub: formatOffset(timeMs),
-        };
-      });
+        });
+      }
+    }
+    return markers;
   }
 
   private bossAbilityColor(index: number): string {
@@ -619,5 +686,15 @@ export class Timeline {
 
   protected onIconError(event: Event): void {
     (event.target as HTMLImageElement).style.visibility = 'hidden';
+  }
+}
+
+/** Appends to the list stored at `key`, creating it on first use. */
+function push<K, V>(map: Map<K, V[]>, key: K, value: V): void {
+  const list = map.get(key);
+  if (list) {
+    list.push(value);
+  } else {
+    map.set(key, [value]);
   }
 }
