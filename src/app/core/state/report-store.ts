@@ -59,6 +59,8 @@ export class ReportStore {
   readonly dispelsByFight = this.data.dispelsByFight;
   readonly performanceByFight = this.data.performanceByFight;
   readonly healingByFight = this.data.healingByFight;
+  readonly loadingHealing = this.data.loadingHealing;
+  readonly failedHealing = this.data.failedHealing;
 
   eventsFor(fightId: number): FightEvents | null {
     return this.data.eventsFor(fightId);
@@ -74,6 +76,15 @@ export class ReportStore {
 
   ensureHealing(fightId: number): Promise<void> {
     return this.data.ensureHealing(fightId);
+  }
+
+  retryHealing(fightId: number): void {
+    this.data.retryHealing(fightId);
+  }
+
+  /** Puts the app into the error state with a message. */
+  fail(message: string): void {
+    this.data.fail(message);
   }
 
   ensurePerformance(fightId: number): Promise<void> {

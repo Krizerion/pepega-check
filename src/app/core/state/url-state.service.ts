@@ -26,7 +26,7 @@ export class UrlStateService {
 
     window.addEventListener('hashchange', () => {
       if (!this.writing) {
-        void this.applyFromUrl();
+        this.apply();
       }
     });
 
@@ -43,7 +43,17 @@ export class UrlStateService {
       untracked(() => this.write(state));
     });
 
-    void this.applyFromUrl();
+    this.apply();
+  }
+
+  /**
+   * Applies the URL without ever leaving a floating rejection behind — this is
+   * called from a listener and from startup, where nothing would catch one.
+   */
+  private apply(): void {
+    this.applyFromUrl().catch((e: unknown) => {
+      this.store.fail(e instanceof Error ? e.message : 'Failed to open the link.');
+    });
   }
 
   private write(state: {

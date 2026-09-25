@@ -118,9 +118,20 @@ export class ReportForm {
     await this.open(DEMO_REPORT_CODE);
   }
 
-  /** Collapses back to the chip only once a report actually loaded. */
+  /**
+   * Collapses back to the chip only once a report actually loaded.
+   *
+   * The catch is a backstop, not decoration: this runs from a submit handler,
+   * so anything that escapes here becomes an unhandled rejection and the user
+   * is left staring at an unchanged screen with no idea why.
+   */
   private async open(code: string): Promise<void> {
-    await this.store.loadReport(code);
+    try {
+      await this.store.loadReport(code);
+    } catch (e) {
+      this.store.fail(e instanceof Error ? e.message : 'Failed to load the report.');
+      return;
+    }
     if (this.store.status() === 'ready') {
       this.editing.set(false);
     }

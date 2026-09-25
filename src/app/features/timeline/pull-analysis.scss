@@ -1114,6 +1114,17 @@ td a {
   margin: 8px 0 0;
 }
 
+.heal-failed {
+  color: var(--warn);
+
+  .link-btn {
+    margin-left: 6px;
+    padding: 1px 7px;
+    font-size: 11.5px;
+    color: var(--text-1);
+  }
+}
+
 /* ---------- responsive ---------- */
 
 /*

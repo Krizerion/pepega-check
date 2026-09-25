@@ -501,6 +501,23 @@ export class PullAnalysis {
     return pull ? this.store.healingByFight().has(pull.id) : false;
   });
 
+  /**
+   * True when healing for this pull was tried and failed. Without it the
+   * "loading" state below is indistinguishable from a dead fetch, and the
+   * spinner spins for as long as the panel is open.
+   */
+  protected readonly healingFailed = computed(() => {
+    const pull = this.store.selectedPull();
+    return pull ? this.store.failedHealing().has(pull.id) : false;
+  });
+
+  protected retryHealing(): void {
+    const pull = this.store.selectedPull();
+    if (pull) {
+      this.store.retryHealing(pull.id);
+    }
+  }
+
   /** The health trace as an SVG polyline, in a 100x100 viewBox. */
   protected tracePoints(row: DeathRow): string {
     return row.hpTrace.map((point) => `${point.x},${100 - point.y}`).join(' ');

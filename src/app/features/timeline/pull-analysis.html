@@ -545,7 +545,13 @@
             healer, not per tick, and the app cannot tell whether someone was chunked from full with
             no chance to react.
           </p>
-          @if (!healingLoaded()) {
+          @if (healingFailed()) {
+            <p class="hint heal-failed">
+              Healing could not be loaded for this pull, so the incoming-heal lines below are
+              missing.
+              <button class="link-btn" (click)="retryHealing()">Try again</button>
+            </p>
+          } @else if (!healingLoaded()) {
             <p class="loading inline">
               <span class="mini-spinner"></span> Loading healing for this pull…
             </p>
