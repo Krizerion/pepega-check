@@ -28,18 +28,22 @@
   </button>
 </header>
 
-@if (store.error(); as err) {
-  <div class="error-banner" role="alert">
-    <span>{{ err }}</span>
-    <button class="dismiss" (click)="store.error.set(null)" aria-label="Dismiss error">✕</button>
-  </div>
-}
-
 @switch (store.status()) {
   @case ('loading') {
     <div class="center-note">
       <div class="spinner"></div>
       <p>Loading report…</p>
+    </div>
+  }
+  @case ('error') {
+    <div class="center-note error-state" role="alert">
+      <p class="error-icon" aria-hidden="true">⚠</p>
+      <h2>That report could not be loaded</h2>
+      <p class="error-detail">{{ store.error() ?? 'Something went wrong.' }}</p>
+      <p class="hint">
+        Check the report link, or your credentials in <strong>Settings</strong>. Private reports
+        need an API client that can see them.
+      </p>
     </div>
   }
   @case ('ready') {

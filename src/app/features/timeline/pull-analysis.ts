@@ -27,6 +27,7 @@ import {
 } from '../../core/analysis/types';
 import { buildUtilityRows } from '../../core/analysis/utility';
 import { classColor } from '../../core/data/wow';
+import { NotifyService } from '../../core/notify/notify.service';
 import { ReportFight, fightDuration, formatOffset } from '../../core/models/wcl';
 import { ReportStore } from '../../core/state/report-store';
 import { WowheadLink } from '../../core/wowhead/wowhead-tooltip';
@@ -58,6 +59,7 @@ interface PerformanceRow {
 })
 export class PullAnalysis {
   protected readonly store = inject(ReportStore);
+  private readonly notify = inject(NotifyService);
   protected readonly format = formatOffset;
   /** Shared with the URL so an analysis view can be linked. */
   protected readonly scope = this.store.analysisScope;
@@ -634,8 +636,14 @@ export class PullAnalysis {
     try {
       await navigator.clipboard.writeText(text);
       this.copyState.set('copied');
+      this.notify.success('Summary copied — paste it straight into Discord.');
     } catch {
       this.copyState.set('failed');
+      // Usually a browser refusing clipboard access without a user gesture.
+      this.notify.error(
+        'The browser blocked clipboard access. Select the summary manually instead.',
+        'Could not copy',
+      );
     }
     setTimeout(() => this.copyState.set('idle'), 2000);
   }

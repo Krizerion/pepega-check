@@ -149,3 +149,103 @@ select {
     background: var(--border-strong);
   }
 }
+
+/* ---------- toasts (ngx-toastr, restyled for this theme) ---------- */
+
+/*
+ * The library ships a light, Bootstrap-flavoured look with background images
+ * for its icons. Everything below replaces that with the app's own tokens and
+ * a flat left-border accent, so a toast reads as part of the app rather than
+ * as something bolted on.
+ */
+.toast-container {
+  .ngx-toastr {
+    /* Block, not flex: the library renders the title and the message as
+       siblings, and a flex row puts them beside each other in two cramped
+       columns instead of stacking them. */
+    display: block;
+    position: relative;
+    width: 340px;
+    max-width: calc(100vw - 32px);
+    padding: 12px 30px 12px 14px;
+    background-image: none;
+    background-color: var(--bg-2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--text-2);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    color: var(--text-1);
+    font-size: 13px;
+    line-height: 1.45;
+    opacity: 1;
+
+    &:hover {
+      background-color: var(--bg-3);
+      box-shadow: var(--shadow);
+      opacity: 1;
+    }
+  }
+
+  .toast-title {
+    color: var(--text-0);
+    font-weight: 700;
+    font-size: 13px;
+    margin-bottom: 2px;
+  }
+
+  .toast-message {
+    word-break: break-word;
+  }
+
+  .toast-close-button {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    color: var(--text-2);
+    font-size: 16px;
+    font-weight: 400;
+    text-shadow: none;
+    opacity: 1;
+
+    &:hover,
+    &:focus {
+      color: var(--text-0);
+      opacity: 1;
+    }
+  }
+
+  .toast-progress {
+    height: 2px;
+    background-color: currentcolor;
+    opacity: 0.55;
+  }
+
+  .toast-error {
+    border-left-color: var(--danger);
+    color: #ffb4b6;
+  }
+
+  .toast-warning {
+    border-left-color: var(--warn);
+    color: #ffd79a;
+  }
+
+  .toast-success {
+    border-left-color: var(--success);
+    color: #9fe0ad;
+  }
+
+  .toast-info {
+    border-left-color: var(--accent);
+    color: var(--text-1);
+  }
+}
+
+/* Clear of the phone's bottom edge and any browser chrome. */
+@media (max-width: 720px) {
+  .toast-container.toast-bottom-right {
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+  }
+}

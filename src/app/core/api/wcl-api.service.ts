@@ -16,9 +16,17 @@ import {
   ReportActor,
   ReportFight,
 } from '../models/wcl';
+import { NotifyService } from '../notify/notify.service';
+import { backoffMs, createLimiter, isRetryable, sleep } from './throttle';
 import { WclAuthService } from './wcl-auth.service';
 
 const API_URL = 'https://www.warcraftlogs.com/api/v2/client';
+
+/** Requests allowed in flight at once, across the whole app. */
+const MAX_CONCURRENT_REQUESTS = 4;
+
+/** Total tries for one request, including the first. */
+const MAX_ATTEMPTS = 4;
 
 const REPORT_QUERY = `
 query ReportOverview($code: String!) {
@@ -145,9 +153,20 @@ interface RawPlayerDetails {
 @Injectable({ providedIn: 'root' })
 export class WclApiService {
   private readonly auth = inject(WclAuthService);
+  private readonly notify = inject(NotifyService);
 
   /** Cleared for the session if the API rejects `includeResources`. */
   private resourcesSupported = true;
+
+  /**
+   * Caps requests in flight across the whole app.
+   *
+   * Four is chosen to stay well inside a personal API client's budget while
+   * still overlapping enough to hide latency; the queue preserves arrival
+   * order, so the pull you are looking at is not starved by the forty behind
+   * it.
+   */
+  private readonly limit = createLimiter(MAX_CONCURRENT_REQUESTS);
 
   async fetchReport(code: string): Promise<Report> {
     const data = await this.query<{
@@ -417,33 +436,65 @@ export class WclApiService {
     }
   }
 
+  /**
+   * Every request in the app goes through here, which makes this the one place
+   * worth pacing: concurrency is capped, and throttling is waited out rather
+   * than thrown at the user.
+   */
   private async query<T>(query: string, variables: Record<string, unknown>): Promise<T> {
-    const token = await this.auth.getAccessToken();
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ query, variables }),
-    });
+    for (let attempt = 1; ; attempt++) {
+      const response = await this.limit(() => this.send(query, variables));
 
-    if (!response.ok) {
-      throw new Error(
-        response.status === 401
-          ? 'Warcraft Logs rejected the access token. Re-check your credentials in Settings.'
-          : `Warcraft Logs API request failed (${response.status}).`,
-      );
-    }
+      if (response.ok) {
+        const body = (await response.json()) as { data?: T; errors?: GraphQlError[] };
+        if (body.errors?.length) {
+          throw new Error(`Warcraft Logs API error: ${body.errors[0].message}`);
+        }
+        if (!body.data) {
+          throw new Error('Warcraft Logs API returned an empty response.');
+        }
+        return body.data;
+      }
 
-    const body = (await response.json()) as { data?: T; errors?: GraphQlError[] };
-    if (body.errors?.length) {
-      throw new Error(`Warcraft Logs API error: ${body.errors[0].message}`);
+      // The wait happens outside the limiter: a sleeping request holding a slot
+      // would throttle the requests that are still allowed to go.
+      if (isRetryable(response.status) && attempt < MAX_ATTEMPTS) {
+        const wait = backoffMs(response.headers.get('Retry-After'), attempt);
+        if (response.status === 429) {
+          this.notify.rateLimited(wait, attempt, MAX_ATTEMPTS - 1);
+        }
+        await sleep(wait);
+        continue;
+      }
+
+      throw new Error(this.failureMessage(response.status, attempt));
     }
-    if (!body.data) {
-      throw new Error('Warcraft Logs API returned an empty response.');
+  }
+
+  private send(query: string, variables: Record<string, unknown>): Promise<Response> {
+    return this.auth.getAccessToken().then((token) =>
+      fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query, variables }),
+      }),
+    );
+  }
+
+  private failureMessage(status: number, attempt: number): string {
+    if (status === 401) {
+      return 'Warcraft Logs rejected the access token. Re-check your credentials in Settings.';
     }
-    return body.data;
+    if (status === 429) {
+      return `Warcraft Logs is rate-limiting this API client and did not recover after ${attempt} attempts. Wait a minute and try again.`;
+    }
+    if (isRetryable(status)) {
+      return `Warcraft Logs is having trouble (${status}) and did not recover after ${attempt} attempts.`;
+    }
+    return `Warcraft Logs API request failed (${status}).`;
   }
 }
 
